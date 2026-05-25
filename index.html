@@ -447,6 +447,7 @@
                 if (hash !== user.password_hash) return showError('login-error', 'Incorrect password.');
 
                 currentUser = user;
+                localStorage.setItem('lg_user', JSON.stringify(user));
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('login-password').value = '';
 
@@ -464,6 +465,7 @@
             currentUser = null;
             items = [];
             randomOrder = [];
+            localStorage.removeItem('lg_user');
             document.getElementById('main-app').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
             document.getElementById('login-password').value = '';
@@ -904,7 +906,37 @@
             }
         });
 
-        // NOTE: No window.onload that touches the DB — we wait for the user to log in.
+        // Auto-restore session from localStorage — re-verified against Supabase
+        window.addEventListener('load', async () => {
+            const saved = localStorage.getItem('lg_user');
+            if (!saved) return;
+            try {
+                const parsed = JSON.parse(saved);
+                if (!parsed.nickname || !parsed.password_hash || !parsed.salt) {
+                    // Incomplete object — reject it
+                    localStorage.removeItem('lg_user');
+                    return;
+                }
+                // Re-fetch the user from Supabase and confirm the stored hash still matches
+                const res = await fetch(
+                    SUPABASE_URL + 'users?nickname=eq.' + encodeURIComponent(parsed.nickname), {
+                    headers: { "apikey": SUPABASE_KEY, "Authorization": 'Bearer ' + SUPABASE_KEY }
+                });
+                const users = await res.json();
+                if (!users.length) { localStorage.removeItem('lg_user'); return; }
+                const dbUser = users[0];
+                // Stored hash must match what's in the DB — rules out tampered objects
+                if (dbUser.password_hash !== parsed.password_hash) {
+                    localStorage.removeItem('lg_user');
+                    return;
+                }
+                currentUser = dbUser;
+                document.getElementById('login-screen').classList.add('hidden');
+                await initializeApp();
+            } catch (e) {
+                localStorage.removeItem('lg_user');
+            }
+        });
     </script>
 </body>
 </html>
