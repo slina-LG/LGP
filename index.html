@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lust Grid</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400;500;600&display=swap');
+        :root { --lust-red: #e11d48; }
+        body { font-family: 'Inter', sans-serif; }
+        .title-font { font-family: 'Playfair Display', serif; }
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        @media (min-width: 640px)  { .gallery-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1024px) { .gallery-grid { grid-template-columns: repeat(4, 1fr); } }
+        @media (min-width: 1280px) { .gallery-grid { grid-template-columns: repeat(5, 1fr); } }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200 min-h-screen">
+
+    <!-- ═══════════════════════════════════════════════════════
+         LOGIN SCREEN
+    ═══════════════════════════════════════════════════════ -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center p-6">
+        <div class="max-w-md w-full bg-zinc-900 rounded-3xl p-10">
+            <h1 class="title-font text-5xl font-bold text-rose-500 text-center mb-2">LUST GRID</h1>
+            <p class="text-center text-zinc-400 mb-10">Private Collection</p>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm mb-2">Nickname</label>
+                    <input id="login-nickname" type="text"
+                           class="w-full bg-black border border-zinc-700 rounded-2xl px-5 py-4 focus:outline-none focus:border-rose-500"
+                           placeholder="Enter nickname">
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">Password</label>
+                    <input id="login-password" type="password"
+                           class="w-full bg-black border border-zinc-700 rounded-2xl px-5 py-4 focus:outline-none focus:border-rose-500"
+                           placeholder="Enter password">
+                </div>
+                <div id="login-error" class="hidden text-red-400 text-sm text-center"></div>
+                <button onclick="login()"
+                        class="w-full py-4 bg-rose-600 hover:bg-rose-500 rounded-2xl font-semibold transition-colors">
+                    LOGIN
+                </button>
+                <button onclick="showSignup()"
+                        class="w-full py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
+                    Create New Account
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SIGNUP SCREEN
+    ═══════════════════════════════════════════════════════ -->
+    <div id="signup-screen" class="hidden min-h-screen flex items-center justify-center p-6">
+        <div class="max-w-md w-full bg-zinc-900 rounded-3xl p-10">
+            <h1 class="title-font text-5xl font-bold text-rose-500 text-center mb-2">LUST GRID</h1>
+            <h2 class="text-2xl font-semibold text-center mb-8 text-zinc-300">Create Account</h2>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm mb-2">Nickname</label>
+                    <input id="signup-nickname" type="text"
+                           class="w-full bg-black border border-zinc-700 rounded-2xl px-5 py-4 focus:outline-none focus:border-rose-500"
+                           placeholder="Choose a nickname">
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">Password</label>
+                    <input id="signup-password" type="password"
+                           class="w-full bg-black border border-zinc-700 rounded-2xl px-5 py-4 focus:outline-none focus:border-rose-500"
+                           placeholder="Create a password">
+                </div>
+                <div id="signup-error" class="hidden text-red-400 text-sm text-center"></div>
+                <button onclick="signup()"
+                        class="w-full py-4 bg-rose-600 hover:bg-rose-500 rounded-2xl font-semibold transition-colors">
+                    CREATE ACCOUNT
+                </button>
+                <button onclick="showLogin()"
+                        class="w-full py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
+                    Back to Login
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MAIN APP  (hidden until logged in)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="main-app" class="hidden">
+
+        <!-- Mobile Top Bar -->
+        <div class="md:hidden fixed top-0 left-0 right-0 bg-black/90 border-b border-rose-900/50 z-50 px-4 py-3 flex items-center justify-between">
+            <h1 onclick="navigateTo('gallery')" class="title-font text-3xl font-bold text-rose-500 cursor-pointer">LUST GRID</h1>
+            <div class="flex gap-4 text-xl">
+                <i onclick="navigateTo('add')" class="fa-solid fa-plus cursor-pointer"></i>
+                <i onclick="navigateTo('gallery')" class="fa-solid fa-grid-2 cursor-pointer"></i>
+            </div>
+        </div>
+
+        <div class="flex h-screen pt-14 md:pt-0">
+
+            <!-- Desktop Sidebar -->
+            <div class="hidden md:flex w-64 bg-black/80 border-r border-rose-900/50 flex-col">
+                <div class="p-6 border-b border-rose-900/30">
+                    <h1 onclick="navigateTo('gallery')" class="title-font text-4xl font-bold text-rose-500 tracking-tight cursor-pointer">LUST GRID</h1>
+                    <p class="text-xs text-rose-400/70 mt-1">indulge • collect • desire</p>
+                </div>
+                <div class="flex-1 py-8 px-4 space-y-2">
+                    <button onclick="navigateTo('add')" class="w-full flex items-center gap-3 px-6 py-4 hover:bg-white/5 rounded-2xl text-left transition-colors">
+                        <i class="fa-solid fa-plus text-rose-400"></i>
+                        <span class="font-medium">Add New</span>
+                    </button>
+                    <button onclick="navigateTo('gallery')" class="w-full flex items-center gap-3 px-6 py-4 hover:bg-white/5 rounded-2xl text-left transition-colors">
+                        <i class="fa-solid fa-grid-2 text-rose-400"></i>
+                        <span class="font-medium">Gallery</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="flex-1 overflow-auto pb-20 md:pb-0">
+
+                <!-- ADD PAGE -->
+                <div id="add-page" class="p-6 md:p-8 hidden">
+                    <h2 class="text-3xl font-semibold mb-8">Add New Items</h2>
+                    <div class="max-w-2xl">
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-rose-300 mb-2">Genres (comma separated)</label>
+                            <input id="genres-input" type="text"
+                                   class="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-4 focus:outline-none focus:border-rose-500"
+                                   placeholder="redhead, solo, lingerie">
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-rose-300 mb-2">Paste Content</label>
+                            <textarea id="content-input" rows="14"
+                                      class="w-full bg-zinc-900 border border-zinc-700 rounded-3xl px-5 py-5 focus:outline-none focus:border-rose-500 font-mono text-sm resize-none"></textarea>
+                        </div>
+                        <button onclick="processInput()" class="w-full md:w-auto bg-rose-600 hover:bg-rose-500 px-10 py-4 rounded-2xl font-semibold text-lg flex items-center justify-center gap-2 transition-colors">
+                            <i class="fa-solid fa-arrow-down"></i> ADD TO GRID
+                        </button>
+                    </div>
+                </div>
+
+                <!-- GALLERY PAGE -->
+                <div id="gallery-page" class="p-6 md:p-8">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-3xl font-semibold">Your Grid</h2>
+                            <div id="item-count" class="text-rose-400 text-sm font-mono">0 items</div>
+                        </div>
+                        <div class="flex flex-wrap gap-3">
+                            <button onclick="importJSON()" id="import-btn"
+                                    class="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-zinc-900 border border-zinc-700 rounded-2xl hover:bg-zinc-800 transition-colors">
+                                <i class="fa-solid fa-upload"></i> Import
+                            </button>
+                            <button onclick="toggleSelectMode()" id="select-btn"
+                                    class="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-zinc-900 border border-zinc-700 rounded-2xl hover:bg-zinc-800 transition-colors">
+                                <i class="fa-solid fa-check-square"></i> Select
+                            </button>
+                            <button onclick="toggleFilterModal()"
+                                    class="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-zinc-900 border border-zinc-700 rounded-2xl hover:bg-zinc-800 transition-colors">
+                                <i class="fa-solid fa-filter"></i> Filter
+                            </button>
+                            <select id="sort-select" onchange="sortGallery()"
+                                    class="bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3">
+                                <option value="date-desc">Newest</option>
+                                <option value="views-desc">Most Viewed</option>
+                                <option value="name-asc">Name A-Z</option>
+                                <option value="random">Random</option>
+                            </select>
+                            <button id="reshuffle-btn" onclick="reshuffleRandom()"
+                                    class="hidden w-10 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-2xl flex items-center justify-center transition-colors">
+                                <i class="fa-solid fa-shuffle text-rose-400"></i>
+                            </button>
+                            <button onclick="logout()"
+                                    class="flex items-center gap-2 px-5 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl transition-colors">
+                                <i class="fa-solid fa-right-from-bracket"></i>
+                                <span>Logout</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="selection-toolbar" class="hidden mb-6 bg-zinc-900 border border-rose-800 rounded-3xl p-4 flex flex-col md:flex-row gap-3 items-center">
+                        <div class="flex gap-3">
+                            <button onclick="selectAll()" class="px-6 py-2 text-sm hover:bg-white/10 rounded-2xl">Select All</button>
+                            <button onclick="exportSelected()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-2xl">Export</button>
+                            <button onclick="deleteSelected()" class="px-6 py-2 bg-red-600 hover:bg-red-500 rounded-2xl">Delete</button>
+                        </div>
+                        <button onclick="cancelSelection()" class="text-zinc-400 hover:text-white ml-auto">Cancel</button>
+                    </div>
+
+                    <div id="gallery-grid" class="gallery-grid"></div>
+                </div>
+
+                <!-- DETAIL PAGE -->
+                <div id="detail-page" class="hidden p-6 md:p-8 max-w-5xl mx-auto">
+                    <button onclick="backToGallery()" class="mb-6 text-rose-400 hover:text-rose-300 flex items-center gap-2">
+                        ← Back to Grid
+                    </button>
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                        <div class="lg:col-span-3">
+                            <div onclick="openActiveLink()" class="cursor-pointer rounded-3xl overflow-hidden border border-zinc-800">
+                                <img id="detail-image" class="w-full h-auto" alt="">
+                            </div>
+                        </div>
+                        <div class="lg:col-span-2 space-y-8">
+                            <div>
+                                <h1 id="detail-name" class="text-3xl md:text-4xl title-font"></h1>
+                                <div class="flex gap-6 text-sm mt-4">
+                                    <div><span class="text-rose-400">Added:</span> <span id="detail-date"></span></div>
+                                    <div><span class="text-rose-400">Views:</span> <span id="detail-views"></span></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-3">
+                                    <span class="text-rose-300">Genres</span>
+                                    <button onclick="editGenres()" class="text-xs px-4 py-1 bg-zinc-800 rounded-2xl">Edit</button>
+                                </div>
+                                <div id="detail-genres" class="flex flex-wrap gap-2"></div>
+                            </div>
+                            <button onclick="openActiveLink()" class="w-full py-6 bg-gradient-to-r from-rose-600 to-pink-600 rounded-3xl text-xl font-semibold">
+                                OPEN LINK
+                            </button>
+                            <div class="flex gap-3">
+                                <button onclick="editLinks()" class="flex-1 py-4 bg-zinc-900 border border-zinc-700 rounded-3xl hover:bg-zinc-800 transition-colors">Edit Links</button>
+                                <button onclick="editImageUrl()" class="px-5 py-4 bg-zinc-900 border border-zinc-700 rounded-3xl text-sm hover:bg-zinc-800 transition-colors">
+                                    <i class="fa-solid fa-image"></i>
+                                </button>
+                                <button onclick="deleteCurrentItem()" class="flex-1 py-4 bg-zinc-900 border border-red-900 text-red-400 rounded-3xl hover:bg-zinc-800 transition-colors">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /Main Content -->
+        </div><!-- /flex h-screen -->
+    </div><!-- /main-app -->
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODALS
+    ═══════════════════════════════════════════════════════ -->
+
+    <!-- Edit Links Modal -->
+    <div id="links-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div class="bg-zinc-900 w-full max-w-lg rounded-3xl p-8 mx-4">
+            <h3 class="text-2xl mb-6">Edit Links</h3>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-xs text-zinc-400 mb-1">Active Link</label>
+                    <div class="flex gap-2">
+                        <input id="edit-active" type="text" class="flex-1 bg-black border border-zinc-700 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-rose-500">
+                        <button onclick="copyField('edit-active')" class="px-5 bg-zinc-800 hover:bg-zinc-700 rounded-2xl">Copy</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-zinc-400 mb-1">Source</label>
+                    <div class="flex gap-2">
+                        <input id="edit-source" type="text" class="flex-1 bg-black border border-zinc-700 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-rose-500">
+                        <button onclick="copyField('edit-source')" class="px-5 bg-zinc-800 hover:bg-zinc-700 rounded-2xl">Copy</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-zinc-400 mb-1">Original Link</label>
+                    <div class="flex gap-2">
+                        <input id="edit-original" type="text" class="flex-1 bg-black border border-zinc-700 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-rose-500">
+                        <button onclick="copyField('edit-original')" class="px-5 bg-zinc-800 hover:bg-zinc-700 rounded-2xl">Copy</button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-10">
+                <button onclick="saveLinks()" class="flex-1 py-4 bg-rose-600 hover:bg-rose-500 rounded-2xl transition-colors">Save Changes</button>
+                <button onclick="closeModals()" class="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Image URL Modal -->
+    <div id="image-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div class="bg-zinc-900 w-full max-w-lg rounded-3xl p-8 mx-4">
+            <h3 class="text-2xl mb-6">Update Image URL</h3>
+            <div class="mb-6">
+                <label class="block text-xs text-zinc-400 mb-2">Direct Image Link</label>
+                <input id="edit-image-url" type="text"
+                       class="w-full bg-black border border-zinc-700 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-rose-500">
+            </div>
+            <div class="flex gap-3">
+                <button onclick="saveImageUrl()" class="flex-1 py-4 bg-rose-600 hover:bg-rose-500 rounded-2xl transition-colors">Save Image</button>
+                <button onclick="closeModals()" class="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Genres Modal -->
+    <div id="genres-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div class="bg-zinc-900 w-full max-w-md rounded-3xl p-8 mx-4">
+            <h3 class="text-2xl mb-6">Edit Genres</h3>
+            <input id="modal-genres-input" type="text"
+                   class="w-full bg-black border border-zinc-700 rounded-2xl px-5 py-4 focus:outline-none focus:border-rose-500">
+            <div class="flex gap-3 mt-8">
+                <button onclick="saveGenres()" class="flex-1 py-4 bg-rose-600 hover:bg-rose-500 rounded-2xl transition-colors">Save</button>
+                <button onclick="closeModals()" class="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Modal -->
+    <div id="filter-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div class="bg-zinc-900 w-full max-w-md rounded-3xl p-8 mx-4">
+            <h3 class="text-2xl mb-6">Filter by Genre</h3>
+            <div id="filter-genres-list" class="max-h-96 overflow-auto"></div>
+            <button onclick="applyFilters()" class="mt-8 w-full py-4 bg-rose-600 hover:bg-rose-500 rounded-2xl transition-colors">Apply Filters</button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SINGLE SCRIPT — all JS in one place, no duplicates
+    ═══════════════════════════════════════════════════════ -->
+    <script>
+        // ── Config ──────────────────────────────────────────
+        const SUPABASE_URL = "https://jlhknihfcyncrseqctqu.supabase.co/rest/v1/";
+        const SUPABASE_KEY = "sb_publishable_-XuJ12E83kQMSOF4K5QHHA_Y3eUjNi_";
+
+        // ── State ────────────────────────────────────────────
+        let currentUser  = null;
+        let items        = [];
+        let currentItemId = null;
+        let selectedItems = new Set();
+        let isSelectMode  = false;
+        let activeFilters = [];
+        let currentSort   = "date-desc";
+        let randomOrder   = [];
+
+        // ── Helpers ──────────────────────────────────────────
+        function generateId() {
+            return 'item_' + Date.now() + Math.random().toString(36).substr(2, 5);
+        }
+
+        function showError(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.classList.remove('hidden');
+        }
+
+        function hideError(elementId) {
+            document.getElementById(elementId).classList.add('hidden');
+        }
+
+        // ── Password hashing (Web Crypto, SHA-256 + salt) ────
+        async function hashPassword(password, salt) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password + salt);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(hashBuffer))
+                .map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // ── Auth: Signup ─────────────────────────────────────
+        async function signup() {
+            hideError('signup-error');
+            const nickname = document.getElementById('signup-nickname').value.trim();
+            const password = document.getElementById('signup-password').value.trim();
+
+            if (!nickname || !password) {
+                return showError('signup-error', 'Nickname and password are required.');
+            }
+            if (password.length < 4) {
+                return showError('signup-error', 'Password must be at least 4 characters.');
+            }
+
+            try {
+                const salt = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
+                const hash = await hashPassword(password, salt);
+
+                const res = await fetch(SUPABASE_URL + "users", {
+                    method: "POST",
+                    headers: {
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`,
+                        "Content-Type": "application/json",
+                        "Prefer": "return=representation"
+                    },
+                    body: JSON.stringify({ nickname, password_hash: hash, salt })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    // Unique constraint violation = duplicate nickname
+                    if (res.status === 409 || (err.code && err.code === '23505')) {
+                        return showError('signup-error', 'That nickname is already taken.');
+                    }
+                    return showError('signup-error', 'Signup failed. Please try again.');
+                }
+
+                alert('Account created! You can now log in.');
+                document.getElementById('signup-nickname').value = '';
+                document.getElementById('signup-password').value = '';
+                showLogin();
+            } catch (e) {
+                console.error(e);
+                showError('signup-error', 'Network error. Please try again.');
+            }
+        }
+
+        // ── Auth: Login ──────────────────────────────────────
+        async function login() {
+            hideError('login-error');
+            const nickname = document.getElementById('login-nickname').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+
+            if (!nickname || !password) {
+                return showError('login-error', 'Nickname and password are required.');
+            }
+
+            try {
+                const res = await fetch(
+                    SUPABASE_URL + `users?nickname=eq.${encodeURIComponent(nickname)}`, {
+                    headers: {
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+
+                if (!res.ok) return showError('login-error', 'Login failed. Please try again.');
+
+                const users = await res.json();
+                if (users.length === 0) return showError('login-error', 'User not found.');
+
+                const user = users[0];
+                const hash = await hashPassword(password, user.salt);
+
+                if (hash !== user.password_hash) return showError('login-error', 'Incorrect password.');
+
+                currentUser = user;
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('login-password').value = '';
+
+                await initializeApp();
+
+            } catch (e) {
+                console.error(e);
+                showError('login-error', 'Network error. Please try again.');
+            }
+        }
+
+        // ── Auth: Logout ─────────────────────────────────────
+        function logout() {
+            if (!confirm('Log out?')) return;
+            currentUser = null;
+            items = [];
+            randomOrder = [];
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('login-password').value = '';
+            document.getElementById('login-nickname').value = '';
+        }
+
+        // ── Screen switching ─────────────────────────────────
+        function showSignup() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('signup-screen').classList.remove('hidden');
+        }
+
+        function showLogin() {
+            document.getElementById('signup-screen').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+        }
+
+        // ── App init after login ─────────────────────────────
+        async function initializeApp() {
+            document.getElementById('main-app').classList.remove('hidden');
+            await loadItems();
+            navigateTo('gallery');
+            renderGallery();
+        }
+
+        // ── Supabase: Load items ─────────────────────────────
+        async function loadItems() {
+            if (!currentUser) return;
+            try {
+                const res = await fetch(
+                    `${SUPABASE_URL}lust_items?user_nickname=eq.${encodeURIComponent(currentUser.nickname)}`, {
+                    headers: {
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                const data = await res.json();
+
+                if (data.length > 0) {
+                    items = data[0].data || [];
+                } else {
+                    // First time for this user — create their row
+                    await fetch(`${SUPABASE_URL}lust_items`, {
+                        method: "POST",
+                        headers: {
+                            "apikey": SUPABASE_KEY,
+                            "Authorization": `Bearer ${SUPABASE_KEY}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            user_nickname: currentUser.nickname,
+                            data: [],
+                            updated_at: new Date().toISOString()
+                        })
+                    });
+                    items = [];
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Failed to load your collection.');
+            }
+        }
+
+        // ── Supabase: Save items ─────────────────────────────
+        async function saveItems() {
+            if (!currentUser) return;
+            try {
+                await fetch(
+                    `${SUPABASE_URL}lust_items?user_nickname=eq.${encodeURIComponent(currentUser.nickname)}`, {
+                    method: "PATCH",
+                    headers: {
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`,
+                        "Content-Type": "application/json",
+                        "Prefer": "return=representation"
+                    },
+                    body: JSON.stringify({ data: items, updated_at: new Date().toISOString() })
+                });
+            } catch (e) {
+                console.error(e);
+                alert('Failed to save changes.');
+            }
+        }
+
+        // ── Input parser ─────────────────────────────────────
+        function parseInput(text, genres) {
+            const blocks = text.trim().split('%red%').filter(b => b.trim());
+            const newItems = [];
+
+            blocks.forEach(block => {
+                const lines = block.trim().split('\n').filter(l => l.trim());
+                if (lines.length < 2) return;
+
+                let nameLine = lines[0].replace(' -%%', '').trim();
+                const link = lines[1].trim();
+                let imageUrl = '';
+
+                for (let line of lines) {
+                    const match = line.match(/https?:\/\/[^\s"')]+/);
+                    if (match) {
+                        const url = match[0];
+                        if (url.match(/\.(jpg|jpeg|png|webp|gif|avif)$/i) ||
+                            url.includes('postimg.cc') ||
+                            url.includes('8upload.com')) {
+                            imageUrl = url;
+                            break;
+                        }
+                    }
+                }
+
+                if (!imageUrl) {
+                    console.warn('⚠️ No image URL found for:', nameLine);
+                    return;
+                }
+
+                newItems.push({
+                    id: generateId(),
+                    name: nameLine,
+                    activeLink: link,
+                    source: link,
+                    originalLink: link,
+                    imageUrl,
+                    genres: genres ? genres.split(',').map(g => g.trim().toLowerCase()).filter(Boolean) : [],
+                    created: new Date().toISOString(),
+                    views: 0
+                });
+            });
+            return newItems;
+        }
+
+        // ── Process add-page input ───────────────────────────
+        async function processInput() {
+            const genres  = document.getElementById('genres-input').value.trim();
+            const content = document.getElementById('content-input').value.trim();
+
+            if (!content) return alert('Please paste content first.');
+
+            const newItems = parseInput(content, genres);
+            const existingLinks = new Set(items.map(i => i.originalLink));
+            const unique = newItems.filter(i => !existingLinks.has(i.originalLink));
+
+            if (unique.length === 0) return alert('All items already exist in your grid.');
+
+            items = [...unique, ...items];
+            await saveItems();
+
+            document.getElementById('genres-input').value  = '';
+            document.getElementById('content-input').value = '';
+
+            alert(`${unique.length} new item(s) added!`);
+            navigateTo('gallery');
+            renderGallery();
+        }
+
+        // ── Gallery render ───────────────────────────────────
+        function renderGallery(filteredItems = null) {
+            const grid = document.getElementById('gallery-grid');
+            grid.innerHTML = '';
+            const toRender = filteredItems || items;
+            document.getElementById('item-count').textContent = `${toRender.length} items`;
+
+            toRender.forEach(item => {
+                const isSelected = selectedItems.has(item.id);
+                const div = document.createElement('div');
+                div.className = `relative group rounded-3xl overflow-hidden shadow-xl cursor-pointer ${isSelected ? 'ring-4 ring-rose-500' : ''}`;
+                div.innerHTML = `
+                    <img src="${item.imageUrl}" class="w-full aspect-[4/5] object-cover" alt="${item.name}">
+                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
+                        <p class="font-medium line-clamp-2 text-sm">${item.name}</p>
+                    </div>
+                    ${isSelectMode ? `
+                    <div onclick="event.stopImmediatePropagation(); toggleSelectItem('${item.id}');"
+                         class="absolute top-3 right-3 w-7 h-7 rounded-2xl border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-rose-500 border-rose-500' : 'border-white/70 bg-black/40'}">
+                        ${isSelected ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                    </div>` : ''}
+                `;
+                div.onclick = () => isSelectMode ? toggleSelectItem(item.id) : viewDetail(item.id);
+                grid.appendChild(div);
+            });
+        }
+
+        // ── Detail view ──────────────────────────────────────
+        function viewDetail(id) {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            currentItemId = id;
+            item.views = (item.views || 0) + 1;
+            saveItems();
+
+            document.getElementById('detail-image').src   = item.imageUrl;
+            document.getElementById('detail-name').textContent  = item.name;
+            document.getElementById('detail-date').textContent  = new Date(item.created).toLocaleString();
+            document.getElementById('detail-views').textContent = item.views;
+
+            const genresContainer = document.getElementById('detail-genres');
+            genresContainer.innerHTML = (item.genres || [])
+                .map(g => `<span class="bg-zinc-800 text-xs px-4 py-2 rounded-3xl">${g}</span>`)
+                .join('');
+
+            navigateTo('detail');
+        }
+
+        function openActiveLink() {
+            const item = items.find(i => i.id === currentItemId);
+            if (item?.activeLink) window.open(item.activeLink, '_blank');
+        }
+
+        function backToGallery() { navigateTo('gallery'); }
+
+        // ── Navigation ───────────────────────────────────────
+        function navigateTo(page) {
+            ['add-page', 'gallery-page', 'detail-page'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            if (page === 'add') {
+                document.getElementById('add-page').classList.remove('hidden');
+            } else if (page === 'gallery') {
+                document.getElementById('gallery-page').classList.remove('hidden');
+                document.getElementById('sort-select').value = currentSort;
+                sortGallery();
+            } else if (page === 'detail') {
+                document.getElementById('detail-page').classList.remove('hidden');
+            }
+        }
+
+        // ── Sort & Filter ────────────────────────────────────
+        function sortGallery() {
+            const val = document.getElementById('sort-select').value;
+            currentSort = val;
+            document.getElementById('reshuffle-btn').classList.toggle('hidden', val !== 'random');
+
+            let sorted = [...items];
+
+            if (val === 'date-desc') {
+                sorted.sort((a, b) => new Date(b.created) - new Date(a.created));
+            } else if (val === 'date-asc') {
+                sorted.sort((a, b) => new Date(a.created) - new Date(b.created));
+            } else if (val === 'views-desc') {
+                sorted.sort((a, b) => (b.views || 0) - (a.views || 0));
+            } else if (val === 'name-asc') {
+                sorted.sort((a, b) => a.name.localeCompare(b.name));
+            } else if (val === 'random') {
+                if (randomOrder.length !== items.length) {
+                    sorted.sort(() => Math.random() - 0.5);
+                    randomOrder = [...sorted];
+                } else {
+                    sorted = [...randomOrder];
+                }
+            }
+
+            renderGallery(sorted);
+        }
+
+        function reshuffleRandom() {
+            if (currentSort !== 'random') return;
+            randomOrder = [...items].sort(() => Math.random() - 0.5);
+            renderGallery(randomOrder);
+        }
+
+        function toggleFilterModal() {
+            const container = document.getElementById('filter-genres-list');
+            container.innerHTML = '';
+            const allGenres = new Set();
+            items.forEach(item => (item.genres || []).forEach(g => allGenres.add(g)));
+
+            allGenres.forEach(genre => {
+                const checked = activeFilters.includes(genre);
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-3 py-3 px-2 hover:bg-zinc-800 rounded-2xl cursor-pointer';
+                div.innerHTML = `
+                    <input type="checkbox" id="g_${genre}" ${checked ? 'checked' : ''} class="w-5 h-5 accent-rose-500">
+                    <label for="g_${genre}" class="flex-1 cursor-pointer">${genre}</label>
+                `;
+                container.appendChild(div);
+            });
+
+            document.getElementById('filter-modal').classList.remove('hidden');
+        }
+
+        function applyFilters() {
+            activeFilters = Array.from(document.querySelectorAll('#filter-genres-list input:checked'))
+                .map(cb => cb.id.replace('g_', ''));
+            closeModals();
+            const filtered = activeFilters.length
+                ? items.filter(item => (item.genres || []).some(g => activeFilters.includes(g)))
+                : items;
+            renderGallery(filtered);
+        }
+
+        // ── Selection ────────────────────────────────────────
+        function toggleSelectMode() {
+            isSelectMode = !isSelectMode;
+            selectedItems.clear();
+            document.getElementById('selection-toolbar').classList.toggle('hidden', !isSelectMode);
+            document.getElementById('import-btn').classList.toggle('hidden', isSelectMode);
+            renderGallery();
+        }
+
+        function toggleSelectItem(id) {
+            selectedItems.has(id) ? selectedItems.delete(id) : selectedItems.add(id);
+            renderGallery();
+        }
+
+        function selectAll() { items.forEach(i => selectedItems.add(i.id)); renderGallery(); }
+
+        function cancelSelection() {
+            isSelectMode = false;
+            selectedItems.clear();
+            document.getElementById('selection-toolbar').classList.add('hidden');
+            document.getElementById('import-btn').classList.remove('hidden');
+            renderGallery();
+        }
+
+        function exportSelected() {
+            if (!selectedItems.size) return;
+            const dataStr = JSON.stringify(items.filter(i => selectedItems.has(i.id)), null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `lustgrid_export_${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+        }
+
+        async function deleteSelected() {
+            if (!selectedItems.size || !confirm(`Delete ${selectedItems.size} item(s)?`)) return;
+            items = items.filter(i => !selectedItems.has(i.id));
+            await saveItems();
+            cancelSelection();
+        }
+
+        function importJSON() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async ev => {
+                    try {
+                        const imported = JSON.parse(ev.target.result);
+                        imported.forEach(item => {
+                            if (!item.id)     item.id      = generateId();
+                            if (!item.created) item.created = new Date().toISOString();
+                            if (typeof item.views !== 'number') item.views = 0;
+                        });
+                        items = [...imported, ...items];
+                        await saveItems();
+                        renderGallery();
+                        alert(`${imported.length} items imported!`);
+                    } catch (err) { alert('Invalid JSON file.'); }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // ── Edit modals ──────────────────────────────────────
+        function editLinks() {
+            const item = items.find(i => i.id === currentItemId);
+            if (!item) return;
+            document.getElementById('edit-active').value   = item.activeLink   || '';
+            document.getElementById('edit-source').value   = item.source       || '';
+            document.getElementById('edit-original').value = item.originalLink || '';
+            document.getElementById('links-modal').classList.remove('hidden');
+        }
+
+        async function saveLinks() {
+            const item = items.find(i => i.id === currentItemId);
+            if (!item) return;
+            item.activeLink   = document.getElementById('edit-active').value.trim();
+            item.source       = document.getElementById('edit-source').value.trim();
+            item.originalLink = document.getElementById('edit-original').value.trim();
+            await saveItems();
+            closeModals();
+            viewDetail(currentItemId);
+        }
+
+        function editImageUrl() {
+            const item = items.find(i => i.id === currentItemId);
+            if (!item) return;
+            document.getElementById('edit-image-url').value = item.imageUrl || '';
+            document.getElementById('image-modal').classList.remove('hidden');
+        }
+
+        async function saveImageUrl() {
+            const item = items.find(i => i.id === currentItemId);
+            if (!item) return;
+            const newUrl = document.getElementById('edit-image-url').value.trim();
+            if (!newUrl) return alert('Please enter a valid image URL.');
+            item.imageUrl = newUrl;
+            await saveItems();
+            closeModals();
+            viewDetail(currentItemId);
+        }
+
+        function editGenres() {
+            const item = items.find(i => i.id === currentItemId);
+            if (!item) return;
+            document.getElementById('modal-genres-input').value = (item.genres || []).join(', ');
+            document.getElementById('genres-modal').classList.remove('hidden');
+        }
+
+        async function saveGenres() {
+            const item = items.find(i => i.id === currentItemId);
+            if (!item) return;
+            item.genres = document.getElementById('modal-genres-input').value
+                .split(',').map(g => g.trim().toLowerCase()).filter(Boolean);
+            await saveItems();
+            closeModals();
+            viewDetail(currentItemId);
+        }
+
+        async function deleteCurrentItem() {
+            if (!currentItemId || !confirm('Delete this item?')) return;
+            items = items.filter(i => i.id !== currentItemId);
+            await saveItems();
+            backToGallery();
+        }
+
+        // ── Utility ──────────────────────────────────────────
+        function copyField(id) {
+            navigator.clipboard.writeText(document.getElementById(id).value);
+        }
+
+        function closeModals() {
+            ['links-modal', 'genres-modal', 'filter-modal', 'image-modal']
+                .forEach(id => document.getElementById(id).classList.add('hidden'));
+        }
+
+        // ── Keyboard shortcuts ───────────────────────────────
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                closeModals();
+                if (isSelectMode) cancelSelection();
+            }
+        });
+
+        // NOTE: No window.onload that touches the DB — we wait for the user to log in.
+    </script>
+</body>
+</html>
