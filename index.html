@@ -820,7 +820,7 @@
 
                 // Step 3 & 4: compute score and sort descending (higher score = earlier)
                 sorted.forEach(item => {
-                    item._recScore = viewScore(item.id) * 0.55 + recencyScore(item.id) * 0.45;
+                    item._recScore = viewScore(item.id) * 0.65 + recencyScore(item.id) * 0.35;
                 });
 
                 if (currentSort === 'recommended') {
