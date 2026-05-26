@@ -705,13 +705,15 @@
         }
 
         // ── Detail view ──────────────────────────────────────
-        function viewDetail(id) {
+        async function viewDetail(id, skipSave = false) {
             const item = items.find(i => i.id === id);
             if (!item) return;
             currentItemId = id;
-            item.views = (item.views || 0) + 1;
-            item.lastOpened = new Date().toISOString();
-            saveItems();
+            if (!skipSave) {
+                item.views = (item.views || 0) + 1;
+                item.lastOpened = new Date().toISOString();
+                await saveItems();
+            }
 
             document.getElementById('detail-image').src   = item.imageUrl;
             document.getElementById('detail-name').textContent  = item.name;
@@ -1015,7 +1017,7 @@
             item.originalLink = document.getElementById('edit-original').value.trim();
             await saveItems();
             closeModals();
-            viewDetail(currentItemId);
+            viewDetail(currentItemId, true);
         }
 
         function editImageUrl() {
@@ -1033,7 +1035,7 @@
             item.imageUrl = newUrl;
             await saveItems();
             closeModals();
-            viewDetail(currentItemId);
+            viewDetail(currentItemId, true);
         }
 
         function editGenres() {
@@ -1050,7 +1052,7 @@
                 .split(',').map(g => g.trim().toLowerCase()).filter(Boolean);
             await saveItems();
             closeModals();
-            viewDetail(currentItemId);
+            viewDetail(currentItemId, true);
         }
 
         async function deleteCurrentItem() {
