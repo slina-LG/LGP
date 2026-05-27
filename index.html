@@ -196,6 +196,7 @@
                                     <div onclick="sortGallery('opened-desc')"    class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Last Opened</div>
                                     <div onclick="sortGallery('views-desc')"     class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Views</div>
                                     <div onclick="sortGallery('name-asc')"       class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Name</div>
+                                    <div onclick="sortGallery('size-desc')"      class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Size</div>
                                     <div onclick="sortGallery('random')"         class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Random</div>
                                 </div>
                             </div>
@@ -247,6 +248,21 @@
                                                class="w-4 h-4 rounded accent-rose-500 cursor-pointer">
                                         <span class="text-zinc-400">Link works</span>
                                     </label>
+                                </div>
+                                <!-- Size field -->
+                                <div class="flex items-center gap-2 mt-3">
+                                    <span class="text-rose-400 text-sm">Size:</span>
+                                    <span id="detail-size-display"
+                                          ondblclick="enterSizeEditMode()"
+                                          class="text-sm text-zinc-300 cursor-pointer select-none">Size unknown</span>
+                                    <input id="detail-size-input" type="text"
+                                           class="hidden text-sm bg-transparent border-b border-zinc-500 focus:outline-none focus:border-rose-400 w-28 text-zinc-200"
+                                           oninput="onSizeInput(this)">
+                                    <button id="detail-size-confirm"
+                                            onclick="confirmSize()"
+                                            class="hidden w-7 h-7 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-lg flex items-center justify-center transition-colors">
+                                        <i class="fa-solid fa-check text-xs text-rose-400"></i>
+                                    </button>
                                 </div>
                             </div>
                             <div>
@@ -812,6 +828,8 @@
                     if (activeStatusFilters.has('locked')      &&  isUnlockedItem(item))   return false;
                     if (activeStatusFilters.has('working')     && !computeLinkWorks(item)) return false;
                     if (activeStatusFilters.has('not-working') &&  computeLinkWorks(item)) return false;
+                    if (activeStatusFilters.has('size-known')   &&  (item.size == null))     return false;
+                    if (activeStatusFilters.has('size-unknown') &&  (item.size != null))     return false;
                     return true;
                 });
             }
@@ -824,6 +842,8 @@
                     if (activeStatusFilters.has('locked')      &&  isUnlockedItem(item))   return false;
                     if (activeStatusFilters.has('working')     && !computeLinkWorks(item)) return false;
                     if (activeStatusFilters.has('not-working') &&  computeLinkWorks(item)) return false;
+                    if (activeStatusFilters.has('size-known')   &&  (item.size == null))     return false;
+                    if (activeStatusFilters.has('size-unknown') &&  (item.size != null))     return false;
                     if (activeFilters.length) return activeFilters.every(g => (item.genres || []).includes(g));
                     return true;
                 });
@@ -843,6 +863,8 @@
                 if (currentSort === 'views-asc')   toRender.sort((a, b) => (a.views || 0) - (b.views || 0));
                 if (currentSort === 'name-asc')    toRender.sort((a, b) => a.name.localeCompare(b.name));
                 if (currentSort === 'name-desc')   toRender.sort((a, b) => b.name.localeCompare(a.name));
+                if (currentSort === 'size-desc')   toRender.sort((a, b) => { if (a.size==null&&b.size==null) return 0; if (a.size==null) return 1; if (b.size==null) return -1; return b.size-a.size; });
+                if (currentSort === 'size-asc')    toRender.sort((a, b) => { if (a.size==null&&b.size==null) return 0; if (a.size==null) return 1; if (b.size==null) return -1; return a.size-b.size; });
             }
 
             document.getElementById('item-count').textContent = `${toRender.length} items`;
@@ -909,6 +931,9 @@
             const cb = document.getElementById('detail-link-works');
             cb.checked = computeLinkWorks(item);
             cb.disabled = isLocked;
+
+            document.getElementById('detail-size-display').textContent = formatSize(item.size);
+            cancelSizeEdit();
 
             const genresContainer = document.getElementById('detail-genres');
             genresContainer.innerHTML = (item.genres || [])
@@ -992,6 +1017,7 @@
             } else if (isSame) {
                 // Reverse by flipping the sort key
                 const reverseMap = {
+                    'size-desc': 'size-asc', 'size-asc': 'size-desc',
                     'recommended': 'recommended-asc', 'recommended-asc': 'recommended',
                     'date-desc': 'date-asc',     'date-asc': 'date-desc',
                     'opened-desc': 'opened-asc', 'opened-asc': 'opened-desc',
@@ -1054,6 +1080,8 @@
             if (currentSort === 'views-asc')  sorted.sort((a, b) => (a.views || 0) - (b.views || 0));
             if (currentSort === 'name-asc')   sorted.sort((a, b) => a.name.localeCompare(b.name));
             if (currentSort === 'name-desc')  sorted.sort((a, b) => b.name.localeCompare(a.name));
+            if (currentSort === 'size-desc')  sorted.sort((a, b) => { if (a.size==null&&b.size==null) return 0; if (a.size==null) return 1; if (b.size==null) return -1; return b.size-a.size; });
+            if (currentSort === 'size-asc')   sorted.sort((a, b) => { if (a.size==null&&b.size==null) return 0; if (a.size==null) return 1; if (b.size==null) return -1; return a.size-b.size; });
 
             // Update the button label
             const labels = {
@@ -1062,6 +1090,7 @@
                 'opened-desc': 'Last Opened', 'opened-asc': 'First Opened',
                 'views-desc': 'Most Viewed',  'views-asc': 'Least Viewed',
                 'name-asc': 'Name A→Z',       'name-desc': 'Name Z→A',
+                'size-desc': 'Largest First',  'size-asc': 'Smallest First',
                 'random': 'Random',
             };
             document.getElementById('sort-label').textContent = labels[currentSort] || 'Sort';
@@ -1259,6 +1288,77 @@
             items = items.filter(i => i.id !== currentItemId);
             await saveItems();
             backToGallery();
+        }
+
+        // ── Size field ───────────────────────────────────────
+        let _sizeBeforeEdit = null;
+
+        function formatSize(val) {
+            if (val === null || val === undefined || val === '') return 'Size unknown';
+            const n = parseInt(val, 10);
+            if (isNaN(n)) return 'Size unknown';
+            if (n >= 1000) return (n / 1000).toFixed(3).replace(/\.?0+$/, '') + ' GB';
+            return n + ' MB';
+        }
+
+        function enterSizeEditMode() {
+            const item = items.find(i => i.id === currentItemId);
+            if (!item) return;
+            _sizeBeforeEdit = item.size ?? null;
+            const display = document.getElementById('detail-size-display');
+            const input   = document.getElementById('detail-size-input');
+            const confirm = document.getElementById('detail-size-confirm');
+            input.value = item.size !== undefined && item.size !== null ? String(item.size) : '';
+            input.style.color = '';
+            display.classList.add('hidden');
+            input.classList.remove('hidden');
+            confirm.classList.remove('hidden');
+            input.focus();
+            setTimeout(() => {
+                document.addEventListener('mousedown', cancelSizeOnOutside);
+                document.addEventListener('touchstart', cancelSizeOnOutside);
+            }, 0);
+        }
+
+        function cancelSizeOnOutside(e) {
+            const input   = document.getElementById('detail-size-input');
+            const confirm = document.getElementById('detail-size-confirm');
+            if (input.contains(e.target) || confirm.contains(e.target)) return;
+            cancelSizeEdit();
+        }
+
+        function cancelSizeEdit() {
+            document.removeEventListener('mousedown', cancelSizeOnOutside);
+            document.removeEventListener('touchstart', cancelSizeOnOutside);
+            const display = document.getElementById('detail-size-display');
+            const input   = document.getElementById('detail-size-input');
+            const confirm = document.getElementById('detail-size-confirm');
+            display.classList.remove('hidden');
+            input.classList.add('hidden');
+            confirm.classList.add('hidden');
+        }
+
+        function onSizeInput(el) {
+            const val = el.value.trim();
+            const valid = /^\d+$/.test(val) && parseInt(val, 10) >= 0;
+            el.style.color = (!val || valid) ? '' : '#f87171';
+        }
+
+        async function confirmSize() {
+            document.removeEventListener('mousedown', cancelSizeOnOutside);
+            document.removeEventListener('touchstart', cancelSizeOnOutside);
+            const input = document.getElementById('detail-size-input');
+            const val   = input.value.trim();
+            if (val !== '' && !/^\d+$/.test(val)) {
+                input.style.color = '#f87171';
+                return;
+            }
+            const item = items.find(i => i.id === currentItemId);
+            if (!item) return;
+            item.size = val === '' ? null : parseInt(val, 10);
+            await saveItems();
+            document.getElementById('detail-size-display').textContent = formatSize(item.size);
+            cancelSizeEdit();
         }
 
         // ── Utility ──────────────────────────────────────────
