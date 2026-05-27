@@ -830,8 +830,14 @@
             let sorted = [...items];
 
             if (val === 'random') {
-                // Always reshuffle — whether same or different
-                randomOrder = [...items].sort(() => Math.random() - 0.5);
+                // Only reshuffle when the user explicitly picks random (not on restore/back-navigation)
+                if (!restore && randomOrder.length) {
+                    // same sort clicked again — reshuffle
+                    randomOrder = [...items].sort(() => Math.random() - 0.5);
+                } else if (!randomOrder.length) {
+                    // first time random is selected
+                    randomOrder = [...items].sort(() => Math.random() - 0.5);
+                }
                 sorted = randomOrder;
             } else if (isSame) {
                 // Reverse by flipping the sort key
@@ -1167,6 +1173,24 @@
                 sortMenuOpen = false;
             }
         });
+
+        // ── Scroll-safe touch guard ──────────────────────────
+        // Suppresses clicks that fire at the end of a scroll gesture.
+        // If the finger moved more than 8px, it was a scroll — not a tap.
+        let touchStartX = 0, touchStartY = 0, touchMoved = false;
+        document.addEventListener('touchstart', e => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            touchMoved = false;
+        }, { passive: true });
+        document.addEventListener('touchmove', e => {
+            const dx = Math.abs(e.touches[0].clientX - touchStartX);
+            const dy = Math.abs(e.touches[0].clientY - touchStartY);
+            if (dx > 8 || dy > 8) touchMoved = true;
+        }, { passive: true });
+        document.addEventListener('click', e => {
+            if (touchMoved) { e.stopImmediatePropagation(); e.preventDefault(); touchMoved = false; }
+        }, true); // capture phase so it runs before any other click handler
 
         // Auto-restore session from localStorage — re-verified against Supabase
         window.addEventListener('load', async () => {
