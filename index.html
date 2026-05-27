@@ -224,9 +224,15 @@
                         <div class="lg:col-span-2 space-y-8">
                             <div>
                                 <h1 id="detail-name" class="text-3xl md:text-4xl title-font"></h1>
-                                <div class="flex gap-6 text-sm mt-4">
+                                <div class="flex gap-6 text-sm mt-4 flex-wrap items-center">
                                     <div><span class="text-rose-400">Added:</span> <span id="detail-date"></span></div>
                                     <div><span class="text-rose-400">Views:</span> <span id="detail-views"></span></div>
+                                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" id="detail-link-works"
+                                               onchange="toggleLinkWorks(this.checked)"
+                                               class="w-4 h-4 rounded accent-rose-500 cursor-pointer">
+                                        <span class="text-zinc-400">Link works</span>
+                                    </label>
                                 </div>
                             </div>
                             <div>
@@ -331,11 +337,14 @@
     </div>
 
     <!-- Filter Modal -->
-    <div id="filter-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-        <div class="bg-zinc-900 w-full max-w-md rounded-3xl p-8 mx-4">
+    <div id="filter-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50" onclick="handleFilterBackdropClick(event)">
+        <div class="bg-zinc-900 w-full max-w-md rounded-3xl p-8 mx-4" onclick="event.stopPropagation()">
             <h3 class="text-2xl mb-6">Filter by Genre</h3>
             <div id="filter-genres-list" class="max-h-96 overflow-auto"></div>
-            <button onclick="applyFilters()" class="mt-8 w-full py-4 bg-rose-600 hover:bg-rose-500 rounded-2xl transition-colors">Apply Filters</button>
+            <div class="flex gap-3 mt-8">
+                <button id="remove-filters-btn" onclick="removeFilters()" class="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">Remove Filters</button>
+                <button onclick="applyFilters()" class="flex-1 py-4 bg-rose-600 hover:bg-rose-500 rounded-2xl transition-colors">Apply Filters</button>
+            </div>
         </div>
     </div>
 
@@ -354,7 +363,7 @@
         let selectedItems = new Set();
         let isSelectMode  = false;
         let activeFilters = [];
-        let activeStatusFilter = null; // 'unlocked', 'locked', or null
+        let activeStatusFilters = new Set(); // values: 'unlocked', 'locked', 'working', 'not-working'
         let currentSort   = "date-desc";
         let randomOrder   = [];
         let sortMenuOpen   = false;
@@ -495,8 +504,13 @@
         async function initializeApp() {
             document.getElementById('main-app').classList.remove('hidden');
             await loadItems();
-            navigateTo('gallery');
-            renderGallery();
+            const cardParam = new URLSearchParams(window.location.search).get('card');
+            if (cardParam && items.find(i => i.id === cardParam)) {
+                await viewDetail(cardParam);
+            } else {
+                navigateTo('gallery');
+                renderGallery();
+            }
         }
 
         // ── Supabase: Central headers builder ───────────────
@@ -642,15 +656,24 @@
             // Step 1: apply active filters
             const isUnlockedItem = item => item.originalLink && item.source && item.originalLink !== item.source;
             let toRender = [...items];
-            if (activeStatusFilter === 'unlocked') toRender = toRender.filter(isUnlockedItem);
-            if (activeStatusFilter === 'locked')   toRender = toRender.filter(i => !isUnlockedItem(i));
+            if (activeStatusFilters.size) {
+                toRender = toRender.filter(item => {
+                    if (activeStatusFilters.has('unlocked')    && !isUnlockedItem(item))   return false;
+                    if (activeStatusFilters.has('locked')      &&  isUnlockedItem(item))   return false;
+                    if (activeStatusFilters.has('working')     && !computeLinkWorks(item)) return false;
+                    if (activeStatusFilters.has('not-working') &&  computeLinkWorks(item)) return false;
+                    return true;
+                });
+            }
             if (activeFilters.length) toRender = toRender.filter(item => (item.genres || []).some(g => activeFilters.includes(g)));
 
             // Step 2: apply current sort
             if (currentSort === 'random') {
                 toRender = randomOrder.filter(item => {
-                    if (activeStatusFilter === 'unlocked' && !isUnlockedItem(item)) return false;
-                    if (activeStatusFilter === 'locked'   &&  isUnlockedItem(item)) return false;
+                    if (activeStatusFilters.has('unlocked')    && !isUnlockedItem(item))   return false;
+                    if (activeStatusFilters.has('locked')      &&  isUnlockedItem(item))   return false;
+                    if (activeStatusFilters.has('working')     && !computeLinkWorks(item)) return false;
+                    if (activeStatusFilters.has('not-working') &&  computeLinkWorks(item)) return false;
                     if (activeFilters.length) return (item.genres || []).some(g => activeFilters.includes(g));
                     return true;
                 });
@@ -678,8 +701,9 @@
 
             toRender.forEach(item => {
                 const isSelected = selectedItems.has(item.id);
-                const div = document.createElement('div');
+                const div = document.createElement('a');
                 const isUnlocked = item.originalLink && item.source && item.originalLink !== item.source;
+                div.href = '?card=' + item.id;
                 div.className = `relative group rounded-3xl overflow-hidden cursor-pointer`;
                 if (isSelected) {
                     div.style.boxShadow = '0 0 0 4px #f43f5e';
@@ -699,9 +723,20 @@
                         ${isSelected ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
                     </div>` : ''}
                 `;
-                div.onclick = () => isSelectMode ? toggleSelectItem(item.id) : viewDetail(item.id);
+                div.onclick = (e) => {
+                    if (isSelectMode) { e.preventDefault(); toggleSelectItem(item.id); }
+                    else { e.preventDefault(); viewDetail(item.id); }
+                };
                 grid.appendChild(div);
             });
+        }
+
+        // ── Link works state ─────────────────────────────────
+        function computeLinkWorks(item) {
+            const isLocked = !item.originalLink || !item.source || item.originalLink === item.source;
+            if (isLocked) return true;
+            if (typeof item.linkWorks === 'boolean') return item.linkWorks;
+            return (item.activeLink || '').startsWith('https://mega.nz');
         }
 
         // ── Detail view ──────────────────────────────────────
@@ -720,12 +755,33 @@
             document.getElementById('detail-date').textContent  = new Date(item.created).toLocaleString();
             document.getElementById('detail-views').textContent = item.views;
 
+            const isLocked = !item.originalLink || !item.source || item.originalLink === item.source;
+            const cb = document.getElementById('detail-link-works');
+            cb.checked = computeLinkWorks(item);
+            cb.disabled = isLocked;
+
             const genresContainer = document.getElementById('detail-genres');
             genresContainer.innerHTML = (item.genres || [])
                 .map(g => `<span class="bg-zinc-800 text-xs px-4 py-2 rounded-3xl">${g}</span>`)
                 .join('');
 
+            history.pushState({ card: id }, '', '?card=' + id);
             navigateTo('detail');
+        }
+
+        async function toggleLinkWorks(checked) {
+            const item = items.find(i => i.id === currentItemId);
+            if (!item) return;
+            // User can only uncheck
+            if (!checked) {
+                item.linkWorks = false;
+                item.activeLink = item.source || item.activeLink;
+                await saveItems();
+                viewDetail(currentItemId, true);
+            } else {
+                // Re-derive — shouldn't normally be reachable by user interaction
+                document.getElementById('detail-link-works').checked = computeLinkWorks(item);
+            }
         }
 
         function openActiveLink() {
@@ -733,7 +789,10 @@
             if (item?.activeLink) window.open(item.activeLink, '_blank');
         }
 
-        function backToGallery() { navigateTo('gallery'); }
+        function backToGallery() {
+            history.pushState({}, '', window.location.pathname);
+            navigateTo('gallery');
+        }
 
         // ── Navigation ───────────────────────────────────────
         function navigateTo(page) {
@@ -877,25 +936,17 @@
             divider.textContent = 'Status';
             container.appendChild(divider);
 
-            [['unlocked', 'Unlocked'], ['locked', 'Locked']].forEach(([val, label]) => {
-                const checked = activeStatusFilter === val;
+            [['unlocked', 'Unlocked'], ['locked', 'Locked'], ['working', 'Working'], ['not-working', 'Not Working']].forEach(([val, label]) => {
+                const checked = activeStatusFilters.has(val);
                 const row = document.createElement('div');
                 row.className = 'flex items-center gap-3 py-3 px-2 hover:bg-zinc-800 rounded-2xl cursor-pointer';
                 row.innerHTML = `
-                    <input type="radio" name="status-filter" id="sf_${val}" value="${val}" ${checked ? 'checked' : ''} class="w-5 h-5 accent-purple-500">
+                    <input type="checkbox" name="status-filter" id="sf_${val}" value="${val}" ${checked ? 'checked' : ''} class="w-5 h-5 accent-purple-500">
                     <label for="sf_${val}" class="flex-1 cursor-pointer">${label}</label>
                 `;
                 container.appendChild(row);
             });
 
-            // "Any" option to clear status filter
-            const anyRow = document.createElement('div');
-            anyRow.className = 'flex items-center gap-3 py-3 px-2 hover:bg-zinc-800 rounded-2xl cursor-pointer';
-            anyRow.innerHTML = `
-                <input type="radio" name="status-filter" id="sf_any" value="" ${!activeStatusFilter ? 'checked' : ''} class="w-5 h-5 accent-purple-500">
-                <label for="sf_any" class="flex-1 cursor-pointer">Any</label>
-            `;
-            container.appendChild(anyRow);
 
             // ── Genre filters ──
             const allGenres = new Set();
@@ -920,15 +971,40 @@
             }
 
             document.getElementById('filter-modal').classList.remove('hidden');
+            document.getElementById('remove-filters-btn').textContent = 'Remove Filters';
         }
 
         function applyFilters() {
-            const statusRadio = document.querySelector('input[name="status-filter"]:checked');
-            activeStatusFilter = statusRadio?.value || null;
+            activeStatusFilters = new Set(
+                Array.from(document.querySelectorAll('input[name="status-filter"]:checked'))
+                    .map(cb => cb.value)
+            );
             activeFilters = Array.from(document.querySelectorAll('#filter-genres-list input[type="checkbox"]:checked'))
+                .filter(cb => cb.name !== 'status-filter')
                 .map(cb => cb.id.replace('g_', ''));
             closeModals();
             renderGallery();
+        }
+
+        function removeFilters() {
+            const btn = document.getElementById('remove-filters-btn');
+            if (btn.textContent.trim() === 'Remove Filters') {
+                // Clear all checkboxes in the modal
+                document.querySelectorAll('#filter-genres-list input[type="checkbox"], input[name="status-filter"]')
+                    .forEach(cb => cb.checked = false);
+                btn.textContent = 'Apply';
+            } else {
+                // Second click — commit the cleared state and close
+                activeStatusFilters = new Set();
+                activeFilters = [];
+                closeModals();
+                renderGallery();
+            }
+        }
+
+        function handleFilterBackdropClick(event) {
+            // Dismissed without applying — just close, discard changes
+            document.getElementById('filter-modal').classList.add('hidden');
         }
 
         // ── Selection ────────────────────────────────────────
@@ -1015,6 +1091,9 @@
             item.activeLink   = document.getElementById('edit-active').value.trim();
             item.source       = document.getElementById('edit-source').value.trim();
             item.originalLink = document.getElementById('edit-original').value.trim();
+            if ((item.activeLink || '').startsWith('https://mega.nz')) {
+                item.linkWorks = true;
+            }
             await saveItems();
             closeModals();
             viewDetail(currentItemId, true);
