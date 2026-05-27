@@ -182,6 +182,7 @@
                                     <div onclick="sortGallery('opened-desc')"    class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Last Opened</div>
                                     <div onclick="sortGallery('views-desc')"     class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Views</div>
                                     <div onclick="sortGallery('name-asc')"       class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Name</div>
+                                    <div onclick="sortGallery('size-desc')"      class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Size</div>
                                     <div onclick="sortGallery('random')"         class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Random</div>
                                 </div>
                             </div>
@@ -662,6 +663,8 @@
                     if (activeStatusFilters.has('locked')      &&  isUnlockedItem(item))   return false;
                     if (activeStatusFilters.has('working')     && !computeLinkWorks(item)) return false;
                     if (activeStatusFilters.has('not-working') &&  computeLinkWorks(item)) return false;
+                    if (activeStatusFilters.has('size-known')   &&  (item.size == null))     return false;
+                    if (activeStatusFilters.has('size-unknown') &&  (item.size != null))     return false;
                     return true;
                 });
             }
@@ -674,6 +677,8 @@
                     if (activeStatusFilters.has('locked')      &&  isUnlockedItem(item))   return false;
                     if (activeStatusFilters.has('working')     && !computeLinkWorks(item)) return false;
                     if (activeStatusFilters.has('not-working') &&  computeLinkWorks(item)) return false;
+                    if (activeStatusFilters.has('size-known')   &&  (item.size == null))     return false;
+                    if (activeStatusFilters.has('size-unknown') &&  (item.size != null))     return false;
                     if (activeFilters.length) return (item.genres || []).some(g => activeFilters.includes(g));
                     return true;
                 });
@@ -693,6 +698,18 @@
                 if (currentSort === 'views-asc')   toRender.sort((a, b) => (a.views || 0) - (b.views || 0));
                 if (currentSort === 'name-asc')    toRender.sort((a, b) => a.name.localeCompare(b.name));
                 if (currentSort === 'name-desc')   toRender.sort((a, b) => b.name.localeCompare(a.name));
+                if (currentSort === 'size-desc')   toRender.sort((a, b) => {
+                    if (a.size == null && b.size == null) return 0;
+                    if (a.size == null) return 1;
+                    if (b.size == null) return -1;
+                    return b.size - a.size;
+                });
+                if (currentSort === 'size-asc')    toRender.sort((a, b) => {
+                    if (a.size == null && b.size == null) return 0;
+                    if (a.size == null) return 1;
+                    if (b.size == null) return -1;
+                    return a.size - b.size;
+                });
             }
 
             document.getElementById('item-count').textContent = `${toRender.length} items`;
@@ -842,6 +859,7 @@
             } else if (isSame) {
                 // Reverse by flipping the sort key
                 const reverseMap = {
+                    'size-desc': 'size-asc', 'size-asc': 'size-desc',
                     'recommended': 'recommended-asc', 'recommended-asc': 'recommended',
                     'date-desc': 'date-asc',     'date-asc': 'date-desc',
                     'opened-desc': 'opened-asc', 'opened-asc': 'opened-desc',
@@ -904,6 +922,18 @@
             if (currentSort === 'views-asc')  sorted.sort((a, b) => (a.views || 0) - (b.views || 0));
             if (currentSort === 'name-asc')   sorted.sort((a, b) => a.name.localeCompare(b.name));
             if (currentSort === 'name-desc')  sorted.sort((a, b) => b.name.localeCompare(a.name));
+            if (currentSort === 'size-desc')  sorted.sort((a, b) => {
+                if (a.size == null && b.size == null) return 0;
+                if (a.size == null) return 1;
+                if (b.size == null) return -1;
+                return b.size - a.size;
+            });
+            if (currentSort === 'size-asc')   sorted.sort((a, b) => {
+                if (a.size == null && b.size == null) return 0;
+                if (a.size == null) return 1;
+                if (b.size == null) return -1;
+                return a.size - b.size;
+            });
 
             // Update the button label
             const labels = {
@@ -912,6 +942,7 @@
                 'opened-desc': 'Last Opened', 'opened-asc': 'First Opened',
                 'views-desc': 'Most Viewed',  'views-asc': 'Least Viewed',
                 'name-asc': 'Name A→Z',       'name-desc': 'Name Z→A',
+                'size-desc': 'Largest First',  'size-asc': 'Smallest First',
                 'random': 'Random',
             };
             document.getElementById('sort-label').textContent = labels[currentSort] || 'Sort';
@@ -942,7 +973,7 @@
             divider.textContent = 'Status';
             container.appendChild(divider);
 
-            [['unlocked', 'Unlocked'], ['locked', 'Locked'], ['working', 'Working'], ['not-working', 'Not Working']].forEach(([val, label]) => {
+            [['unlocked', 'Unlocked'], ['locked', 'Locked'], ['working', 'Working'], ['not-working', 'Not Working'], ['size-known', 'Size Known'], ['size-unknown', 'Size Unknown']].forEach(([val, label]) => {
                 const checked = activeStatusFilters.has(val);
                 const row = document.createElement('div');
                 row.className = 'flex items-center gap-3 py-3 px-2 hover:bg-zinc-800 rounded-2xl cursor-pointer';
