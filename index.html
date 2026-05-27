@@ -97,7 +97,12 @@
 
         <!-- Mobile Top Bar -->
         <div class="md:hidden fixed top-0 left-0 right-0 bg-black/90 border-b border-rose-900/50 z-50 px-4 py-3 flex items-center justify-between">
-            <h1 onclick="navigateTo('gallery')" class="title-font text-3xl font-bold text-rose-500 cursor-pointer">LUST GRID</h1>
+            <div class="flex items-center gap-3">
+                <button onclick="openMobileSidebar()" class="text-zinc-300 hover:text-white p-1">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                <h1 onclick="navigateTo('gallery')" class="title-font text-3xl font-bold text-rose-500 cursor-pointer">LUST GRID</h1>
+            </div>
             <div class="flex gap-4 text-xl">
                 <i onclick="navigateTo('add')" class="fa-solid fa-plus cursor-pointer"></i>
                 <i onclick="navigateTo('gallery')" class="fa-solid fa-grid-2 cursor-pointer"></i>
@@ -112,15 +117,24 @@
                     <h1 onclick="navigateTo('gallery')" class="title-font text-4xl font-bold text-rose-500 tracking-tight cursor-pointer">LUST GRID</h1>
                     <p class="text-xs text-rose-400/70 mt-1">indulge • collect • desire</p>
                 </div>
-                <div class="flex-1 py-8 px-4 space-y-2">
-                    <button onclick="navigateTo('add')" class="w-full flex items-center gap-3 px-6 py-4 hover:bg-white/5 rounded-2xl text-left transition-colors">
-                        <i class="fa-solid fa-plus text-rose-400"></i>
-                        <span class="font-medium">Add New</span>
-                    </button>
-                    <button onclick="navigateTo('gallery')" class="w-full flex items-center gap-3 px-6 py-4 hover:bg-white/5 rounded-2xl text-left transition-colors">
-                        <i class="fa-solid fa-grid-2 text-rose-400"></i>
-                        <span class="font-medium">Gallery</span>
-                    </button>
+                <div class="flex-1 py-8 px-4 flex flex-col overflow-hidden">
+                    <div class="space-y-2">
+                        <button onclick="navigateTo('add')" class="w-full flex items-center gap-3 px-6 py-4 hover:bg-white/5 rounded-2xl text-left transition-colors">
+                            <i class="fa-solid fa-plus text-rose-400"></i>
+                            <span class="font-medium">Add New</span>
+                        </button>
+                        <button onclick="navigateTo('gallery')" class="w-full flex items-center gap-3 px-6 py-4 hover:bg-white/5 rounded-2xl text-left transition-colors">
+                            <i class="fa-solid fa-grid-2 text-rose-400"></i>
+                            <span class="font-medium">Gallery</span>
+                        </button>
+                    </div>
+                    <div class="mt-4 flex flex-col overflow-hidden">
+                        <button onclick="toggleSidebarGenres()" class="w-full flex items-center gap-2 px-6 py-2 text-left text-zinc-400 hover:text-zinc-200 transition-colors">
+                            <i id="sidebar-genres-triangle" class="fa-solid fa-caret-right text-sm transition-transform duration-200"></i>
+                            <span class="font-medium">Genres</span>
+                        </button>
+                        <div id="sidebar-genres-list" class="hidden mt-1 overflow-y-auto flex-1 pr-1"></div>
+                    </div>
                 </div>
             </div>
 
@@ -182,7 +196,6 @@
                                     <div onclick="sortGallery('opened-desc')"    class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Last Opened</div>
                                     <div onclick="sortGallery('views-desc')"     class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Views</div>
                                     <div onclick="sortGallery('name-asc')"       class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Name</div>
-                                    <div onclick="sortGallery('size-desc')"      class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Size</div>
                                     <div onclick="sortGallery('random')"         class="sort-option px-5 py-3 hover:bg-zinc-800 cursor-pointer">Random</div>
                                 </div>
                             </div>
@@ -266,6 +279,27 @@
                     class="w-full py-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl text-rose-400 font-medium flex items-center justify-center gap-2 transition-colors">
                 ← Back to Grid
             </button>
+        </div>
+
+        <!-- Mobile sidebar overlay -->
+        <div id="mobile-sidebar-overlay" class="md:hidden hidden fixed inset-0 bg-black/60 z-40" onclick="closeMobileSidebar()"></div>
+
+        <!-- Mobile sidebar panel -->
+        <div id="mobile-sidebar" class="md:hidden fixed top-0 left-0 h-full w-64 max-w-[75vw] bg-zinc-950 border-r border-rose-900/40 z-50 flex flex-col transform -translate-x-full transition-transform duration-300 ease-in-out">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-rose-900/30">
+                <h2 class="title-font text-2xl font-bold text-rose-500">LUST GRID</h2>
+                <button onclick="closeMobileSidebar()" class="text-zinc-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-hidden flex flex-col py-4 px-3">
+                <!-- Genres section -->
+                <button onclick="toggleMobileSidebarGenres()" class="w-full flex items-center gap-2 px-4 py-2 text-left text-zinc-400 hover:text-zinc-200 transition-colors rounded-2xl">
+                    <i id="mobile-sidebar-genres-triangle" class="fa-solid fa-caret-right text-sm transition-transform duration-200"></i>
+                    <span class="font-medium">Genres</span>
+                </button>
+                <div id="mobile-sidebar-genres-list" class="hidden mt-1 overflow-y-auto flex-1 pr-1"></div>
+            </div>
         </div>
 
     </div><!-- /main-app -->
@@ -505,6 +539,7 @@
         async function initializeApp() {
             document.getElementById('main-app').classList.remove('hidden');
             await loadItems();
+            if (sidebarGenresOpen) renderSidebarGenres();
             const cardParam = new URLSearchParams(window.location.search).get('card');
             if (cardParam && items.find(i => i.id === cardParam)) {
                 await viewDetail(cardParam);
@@ -649,6 +684,120 @@
             renderGallery();
         }
 
+        // ── Sidebar genres ───────────────────────────────────
+        let sidebarGenresOpen = false;
+
+        function toggleSidebarGenres() {
+            sidebarGenresOpen = !sidebarGenresOpen;
+            const list     = document.getElementById('sidebar-genres-list');
+            const triangle = document.getElementById('sidebar-genres-triangle');
+            list.classList.toggle('hidden', !sidebarGenresOpen);
+            triangle.style.transform = sidebarGenresOpen ? 'rotate(90deg)' : '';
+            if (sidebarGenresOpen) renderSidebarGenres();
+        }
+
+        function renderSidebarGenres() {
+            const list = document.getElementById('sidebar-genres-list');
+            if (!list) return;
+            list.innerHTML = '';
+            const allGenres = new Set();
+            items.forEach(item => (item.genres || []).forEach(g => allGenres.add(g)));
+            [...allGenres].sort().forEach(genre => {
+                const isActive = activeFilters.includes(genre);
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-6 py-2 rounded-2xl text-sm transition-colors ${
+                    isActive ? 'bg-rose-900/60 text-rose-200' : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                }`;
+                btn.textContent = genre;
+                btn.onclick = () => toggleSidebarGenre(genre);
+                list.appendChild(btn);
+            });
+        }
+
+        function toggleSidebarGenre(genre) {
+            const idx = activeFilters.indexOf(genre);
+            if (idx === -1) activeFilters.push(genre);
+            else activeFilters.splice(idx, 1);
+            renderSidebarGenres();
+            if (mobileSidebarGenresOpen) renderMobileSidebarGenres();
+            renderGallery();
+        }
+
+        // ── Mobile sidebar ───────────────────────────────────
+        let mobileSidebarOpen = false;
+        let mobileSidebarGenresOpen = false;
+
+        function openMobileSidebar() {
+            mobileSidebarOpen = true;
+            document.getElementById('mobile-sidebar').style.transform = 'translateX(0)';
+            document.getElementById('mobile-sidebar-overlay').classList.remove('hidden');
+            if (mobileSidebarGenresOpen) renderMobileSidebarGenres();
+        }
+
+        function closeMobileSidebar() {
+            mobileSidebarOpen = false;
+            document.getElementById('mobile-sidebar').style.transform = 'translateX(-100%)';
+            document.getElementById('mobile-sidebar-overlay').classList.add('hidden');
+        }
+
+        function toggleMobileSidebarGenres() {
+            mobileSidebarGenresOpen = !mobileSidebarGenresOpen;
+            const list     = document.getElementById('mobile-sidebar-genres-list');
+            const triangle = document.getElementById('mobile-sidebar-genres-triangle');
+            list.classList.toggle('hidden', !mobileSidebarGenresOpen);
+            triangle.style.transform = mobileSidebarGenresOpen ? 'rotate(90deg)' : '';
+            if (mobileSidebarGenresOpen) renderMobileSidebarGenres();
+        }
+
+        function renderMobileSidebarGenres() {
+            const list = document.getElementById('mobile-sidebar-genres-list');
+            if (!list) return;
+            list.innerHTML = '';
+            const allGenres = new Set();
+            items.forEach(item => (item.genres || []).forEach(g => allGenres.add(g)));
+            [...allGenres].sort().forEach(genre => {
+                const isActive = activeFilters.includes(genre);
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-4 py-2 rounded-2xl text-sm transition-colors ${
+                    isActive ? 'bg-rose-900/60 text-rose-200' : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                }`;
+                btn.textContent = genre;
+                btn.onclick = () => {
+                    const idx = activeFilters.indexOf(genre);
+                    if (idx === -1) activeFilters.push(genre);
+                    else activeFilters.splice(idx, 1);
+                    renderMobileSidebarGenres();
+                    if (sidebarGenresOpen) renderSidebarGenres(); // keep desktop in sync
+                    renderGallery();
+                };
+                list.appendChild(btn);
+            });
+        }
+
+        // ── Swipe gesture to open/close mobile sidebar ───────
+        (function() {
+            let startX = 0, startY = 0, dragging = false;
+            const EDGE_ZONE = 30; // px from left edge to trigger open swipe
+
+            document.addEventListener('touchstart', e => {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                dragging = false;
+                // Only start a drag if touching near left edge (to open) or sidebar is open
+                if (startX <= EDGE_ZONE || mobileSidebarOpen) dragging = true;
+            }, { passive: true });
+
+            document.addEventListener('touchend', e => {
+                if (!dragging) return;
+                const dx = e.changedTouches[0].clientX - startX;
+                const dy = Math.abs(e.changedTouches[0].clientY - startY);
+                if (dy > 60) return; // too vertical, ignore
+                if (!mobileSidebarOpen && dx > 50) openMobileSidebar();
+                if (mobileSidebarOpen && dx < -50) closeMobileSidebar();
+                dragging = false;
+            }, { passive: true });
+        })();
+
         // ── Gallery render ───────────────────────────────────
         function renderGallery() {
             const grid = document.getElementById('gallery-grid');
@@ -663,12 +812,10 @@
                     if (activeStatusFilters.has('locked')      &&  isUnlockedItem(item))   return false;
                     if (activeStatusFilters.has('working')     && !computeLinkWorks(item)) return false;
                     if (activeStatusFilters.has('not-working') &&  computeLinkWorks(item)) return false;
-                    if (activeStatusFilters.has('size-known')   &&  (item.size == null))     return false;
-                    if (activeStatusFilters.has('size-unknown') &&  (item.size != null))     return false;
                     return true;
                 });
             }
-            if (activeFilters.length) toRender = toRender.filter(item => (item.genres || []).some(g => activeFilters.includes(g)));
+            if (activeFilters.length) toRender = toRender.filter(item => activeFilters.every(g => (item.genres || []).includes(g)));
 
             // Step 2: apply current sort
             if (currentSort === 'random') {
@@ -677,9 +824,7 @@
                     if (activeStatusFilters.has('locked')      &&  isUnlockedItem(item))   return false;
                     if (activeStatusFilters.has('working')     && !computeLinkWorks(item)) return false;
                     if (activeStatusFilters.has('not-working') &&  computeLinkWorks(item)) return false;
-                    if (activeStatusFilters.has('size-known')   &&  (item.size == null))     return false;
-                    if (activeStatusFilters.has('size-unknown') &&  (item.size != null))     return false;
-                    if (activeFilters.length) return (item.genres || []).some(g => activeFilters.includes(g));
+                    if (activeFilters.length) return activeFilters.every(g => (item.genres || []).includes(g));
                     return true;
                 });
             } else if (currentSort === 'recommended' || currentSort === 'recommended-asc') {
@@ -698,18 +843,6 @@
                 if (currentSort === 'views-asc')   toRender.sort((a, b) => (a.views || 0) - (b.views || 0));
                 if (currentSort === 'name-asc')    toRender.sort((a, b) => a.name.localeCompare(b.name));
                 if (currentSort === 'name-desc')   toRender.sort((a, b) => b.name.localeCompare(a.name));
-                if (currentSort === 'size-desc')   toRender.sort((a, b) => {
-                    if (a.size == null && b.size == null) return 0;
-                    if (a.size == null) return 1;
-                    if (b.size == null) return -1;
-                    return b.size - a.size;
-                });
-                if (currentSort === 'size-asc')    toRender.sort((a, b) => {
-                    if (a.size == null && b.size == null) return 0;
-                    if (a.size == null) return 1;
-                    if (b.size == null) return -1;
-                    return a.size - b.size;
-                });
             }
 
             document.getElementById('item-count').textContent = `${toRender.length} items`;
@@ -859,7 +992,6 @@
             } else if (isSame) {
                 // Reverse by flipping the sort key
                 const reverseMap = {
-                    'size-desc': 'size-asc', 'size-asc': 'size-desc',
                     'recommended': 'recommended-asc', 'recommended-asc': 'recommended',
                     'date-desc': 'date-asc',     'date-asc': 'date-desc',
                     'opened-desc': 'opened-asc', 'opened-asc': 'opened-desc',
@@ -922,18 +1054,6 @@
             if (currentSort === 'views-asc')  sorted.sort((a, b) => (a.views || 0) - (b.views || 0));
             if (currentSort === 'name-asc')   sorted.sort((a, b) => a.name.localeCompare(b.name));
             if (currentSort === 'name-desc')  sorted.sort((a, b) => b.name.localeCompare(a.name));
-            if (currentSort === 'size-desc')  sorted.sort((a, b) => {
-                if (a.size == null && b.size == null) return 0;
-                if (a.size == null) return 1;
-                if (b.size == null) return -1;
-                return b.size - a.size;
-            });
-            if (currentSort === 'size-asc')   sorted.sort((a, b) => {
-                if (a.size == null && b.size == null) return 0;
-                if (a.size == null) return 1;
-                if (b.size == null) return -1;
-                return a.size - b.size;
-            });
 
             // Update the button label
             const labels = {
@@ -942,7 +1062,6 @@
                 'opened-desc': 'Last Opened', 'opened-asc': 'First Opened',
                 'views-desc': 'Most Viewed',  'views-asc': 'Least Viewed',
                 'name-asc': 'Name A→Z',       'name-desc': 'Name Z→A',
-                'size-desc': 'Largest First',  'size-asc': 'Smallest First',
                 'random': 'Random',
             };
             document.getElementById('sort-label').textContent = labels[currentSort] || 'Sort';
@@ -967,12 +1086,6 @@
             const container = document.getElementById('filter-genres-list');
             container.innerHTML = '';
 
-            // ── System filters (unlocked / locked) ──
-            const divider = document.createElement('div');
-            divider.className = 'text-xs text-zinc-500 uppercase tracking-widest px-2 pb-1 pt-1';
-            divider.textContent = 'Status';
-            container.appendChild(divider);
-
             [['unlocked', 'Unlocked'], ['locked', 'Locked'], ['working', 'Working'], ['not-working', 'Not Working'], ['size-known', 'Size Known'], ['size-unknown', 'Size Unknown']].forEach(([val, label]) => {
                 const checked = activeStatusFilters.has(val);
                 const row = document.createElement('div');
@@ -984,29 +1097,6 @@
                 container.appendChild(row);
             });
 
-
-            // ── Genre filters ──
-            const allGenres = new Set();
-            items.forEach(item => (item.genres || []).forEach(g => allGenres.add(g)));
-
-            if (allGenres.size > 0) {
-                const genreDivider = document.createElement('div');
-                genreDivider.className = 'text-xs text-zinc-500 uppercase tracking-widest px-2 pb-1 pt-4';
-                genreDivider.textContent = 'Genres';
-                container.appendChild(genreDivider);
-
-                allGenres.forEach(genre => {
-                    const checked = activeFilters.includes(genre);
-                    const div = document.createElement('div');
-                    div.className = 'flex items-center gap-3 py-3 px-2 hover:bg-zinc-800 rounded-2xl cursor-pointer';
-                    div.innerHTML = `
-                        <input type="checkbox" id="g_${genre}" ${checked ? 'checked' : ''} class="w-5 h-5 accent-rose-500">
-                        <label for="g_${genre}" class="flex-1 cursor-pointer">${genre}</label>
-                    `;
-                    container.appendChild(div);
-                });
-            }
-
             document.getElementById('filter-modal').classList.remove('hidden');
             document.getElementById('remove-filters-btn').textContent = 'Remove Filters';
         }
@@ -1016,9 +1106,6 @@
                 Array.from(document.querySelectorAll('input[name="status-filter"]:checked'))
                     .map(cb => cb.value)
             );
-            activeFilters = Array.from(document.querySelectorAll('#filter-genres-list input[type="checkbox"]:checked'))
-                .filter(cb => cb.name !== 'status-filter')
-                .map(cb => cb.id.replace('g_', ''));
             closeModals();
             renderGallery();
         }
@@ -1026,14 +1113,10 @@
         function removeFilters() {
             const btn = document.getElementById('remove-filters-btn');
             if (btn.textContent.trim() === 'Remove Filters') {
-                // Clear all checkboxes in the modal
-                document.querySelectorAll('#filter-genres-list input[type="checkbox"], input[name="status-filter"]')
-                    .forEach(cb => cb.checked = false);
+                document.querySelectorAll('input[name="status-filter"]').forEach(cb => cb.checked = false);
                 btn.textContent = 'Apply';
             } else {
-                // Second click — commit the cleared state and close
                 activeStatusFilters = new Set();
-                activeFilters = [];
                 closeModals();
                 renderGallery();
             }
