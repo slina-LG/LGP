@@ -212,13 +212,25 @@
                         </div>
                     </div>
 
-                    <div id="selection-toolbar" class="hidden mb-6 bg-zinc-900 border border-rose-800 rounded-3xl p-4 flex flex-col md:flex-row gap-3 items-center">
-                        <div class="flex gap-3">
+                    <div id="selection-toolbar" class="hidden mb-4 bg-zinc-900 border border-rose-800 rounded-3xl p-4 flex flex-col gap-3">
+                        <div class="flex flex-wrap gap-3 items-center">
                             <button onclick="selectAll()" class="px-6 py-2 text-sm hover:bg-white/10 rounded-2xl">Select All</button>
                             <button onclick="exportSelected()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-2xl">Export</button>
                             <button onclick="deleteSelected()" class="px-6 py-2 bg-red-600 hover:bg-red-500 rounded-2xl">Delete</button>
+                            <button onclick="cancelSelection()" class="text-zinc-400 hover:text-white ml-auto">Cancel</button>
                         </div>
-                        <button onclick="cancelSelection()" class="text-zinc-400 hover:text-white ml-auto">Cancel</button>
+                        <!-- Add genre row — visible only when ≥1 card selected -->
+                        <div id="bulk-genre-row" class="hidden flex items-center gap-2">
+                            <input id="bulk-genre-input" type="text"
+                                   placeholder="Type a genre..."
+                                   class="flex-1 bg-black border border-zinc-700 rounded-2xl px-4 py-2 text-sm focus:outline-none focus:border-rose-500"
+                                   onkeydown="if(event.key==='Enter') addGenreToSelected()"
+                                   onblur="onBulkGenreBlur(event)">
+                            <button onclick="addGenreToSelected()"
+                                    class="px-5 py-2 bg-rose-600 hover:bg-rose-500 rounded-2xl text-sm font-medium transition-colors whitespace-nowrap">
+                                Add Genre
+                            </button>
+                        </div>
                     </div>
 
                     <div id="gallery-grid" class="gallery-grid"></div>
@@ -875,7 +887,7 @@
                 const isSelected = selectedItems.has(item.id);
                 const div = document.createElement('a');
                 const isUnlocked = item.originalLink && item.source && item.originalLink !== item.source;
-                div.href = '?card=' + item.id;
+                div.href = isSelectMode ? 'javascript:void(0)' : '?card=' + item.id;
                 div.className = `relative group rounded-3xl overflow-hidden cursor-pointer`;
                 if (isSelected) {
                     div.style.boxShadow = '0 0 0 4px #f43f5e';
@@ -1167,16 +1179,18 @@
 
         function toggleSelectItem(id) {
             selectedItems.has(id) ? selectedItems.delete(id) : selectedItems.add(id);
+            updateBulkGenreRow();
             renderGallery();
         }
 
-        function selectAll() { items.forEach(i => selectedItems.add(i.id)); renderGallery(); }
+        function selectAll() { items.forEach(i => selectedItems.add(i.id)); updateBulkGenreRow(); renderGallery(); }
 
         function cancelSelection() {
             isSelectMode = false;
             selectedItems.clear();
             document.getElementById('selection-toolbar').classList.add('hidden');
             document.getElementById('import-btn').classList.remove('hidden');
+            hideBulkGenreRow();
             renderGallery();
         }
 
@@ -1359,6 +1373,48 @@
             await saveItems();
             document.getElementById('detail-size-display').textContent = formatSize(item.size);
             cancelSizeEdit();
+        }
+
+        // ── Bulk genre add ───────────────────────────────────
+        function updateBulkGenreRow() {
+            const row = document.getElementById('bulk-genre-row');
+            if (!row) return;
+            if (selectedItems.size > 0) {
+                row.classList.remove('hidden');
+            } else {
+                hideBulkGenreRow();
+            }
+        }
+
+        function hideBulkGenreRow() {
+            const row   = document.getElementById('bulk-genre-row');
+            const input = document.getElementById('bulk-genre-input');
+            if (row)   row.classList.add('hidden');
+            if (input) input.value = '';
+        }
+
+        function onBulkGenreBlur(e) {
+            // If focus moved to the Add Genre button, don't cancel
+            const btn = e.relatedTarget;
+            if (btn && btn.onclick && btn.onclick.toString().includes('addGenreToSelected')) return;
+            // Otherwise clear the input but keep the row visible (stay in select mode)
+            document.getElementById('bulk-genre-input').value = '';
+        }
+
+        async function addGenreToSelected() {
+            const input = document.getElementById('bulk-genre-input');
+            const genre = input.value.trim().toLowerCase();
+            if (!genre) return;
+            items.forEach(item => {
+                if (!selectedItems.has(item.id)) return;
+                if (!item.genres) item.genres = [];
+                if (!item.genres.includes(genre)) item.genres.push(genre);
+            });
+            await saveItems();
+            input.value = '';
+            // Refresh sidebar genres in case it's a new genre
+            if (sidebarGenresOpen) renderSidebarGenres();
+            if (mobileSidebarGenresOpen) renderMobileSidebarGenres();
         }
 
         // ── Utility ──────────────────────────────────────────
