@@ -269,9 +269,7 @@
                                           class="text-sm text-zinc-300 cursor-pointer select-none">Size unknown</span>
                                     <input id="detail-size-input" type="text"
                                            class="hidden text-sm bg-transparent border-b border-zinc-500 focus:outline-none focus:border-rose-400 w-28 text-zinc-200"
-                                           oninput="onSizeInput(this)"
-                                           onblur="onSizeBlur(event)"
-                                           onkeydown="if(event.key==='Enter') confirmSize(); if(event.key==='Escape') cancelSizeEdit();">
+                                           oninput="onSizeInput(this)">
                                     <button id="detail-size-confirm"
                                             onclick="confirmSize()"
                                             class="hidden w-7 h-7 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-lg flex items-center justify-center transition-colors">
@@ -492,7 +490,7 @@
                     return showError('signup-error', 'Signup failed. Please try again.');
                 }
 
-                toast('Account created! You can now log in.', 'success');
+                alert('Account created! You can now log in.');
                 document.getElementById('signup-nickname').value = '';
                 document.getElementById('signup-password').value = '';
                 showLogin();
@@ -621,7 +619,7 @@
                 }
             } catch (e) {
                 console.error(e);
-                toast('Failed to load your collection.', 'error');
+                alert('Failed to load your collection.');
             }
         }
 
@@ -640,7 +638,7 @@
                 });
             } catch (e) {
                 console.error(e);
-                toast('Failed to save changes.', 'error');
+                alert('Failed to save changes.');
             }
         }
 
@@ -695,13 +693,13 @@
             const genres  = document.getElementById('genres-input').value.trim();
             const content = document.getElementById('content-input').value.trim();
 
-            if (!content) { toast('Please paste content first.', 'warn'); return; }
+            if (!content) return alert('Please paste content first.');
 
             const newItems = parseInput(content, genres);
             const existingLinks = new Set(items.map(i => i.originalLink));
             const unique = newItems.filter(i => !existingLinks.has(i.originalLink));
 
-            if (unique.length === 0) { toast('All items already exist in your grid.', 'warn'); return; }
+            if (unique.length === 0) return alert('All items already exist in your grid.');
 
             items = [...unique, ...items];
             await saveItems();
@@ -709,7 +707,7 @@
             document.getElementById('genres-input').value  = '';
             document.getElementById('content-input').value = '';
 
-            toast(`${unique.length} new item(s) added!`, 'success');
+            alert(`${unique.length} new item(s) added!`);
             navigateTo('gallery');
             renderGallery();
         }
@@ -1232,8 +1230,8 @@
                         items = [...imported, ...items];
                         await saveItems();
                         renderGallery();
-                        toast(`${imported.length} items imported!`, 'success');
-                    } catch (err) { toast('Invalid JSON file.', 'error'); }
+                        alert(`${imported.length} items imported!`);
+                    } catch (err) { alert('Invalid JSON file.'); }
                 };
                 reader.readAsText(file);
             };
@@ -1275,7 +1273,7 @@
             const item = items.find(i => i.id === currentItemId);
             if (!item) return;
             const newUrl = document.getElementById('edit-image-url').value.trim();
-            if (!newUrl) { toast('Please enter a valid image URL.', 'warn'); return; }
+            if (!newUrl) return alert('Please enter a valid image URL.');
             item.imageUrl = newUrl;
             await saveItems();
             closeModals();
@@ -1330,9 +1328,18 @@
             input.classList.remove('hidden');
             confirm.classList.remove('hidden');
             input.focus();
+            setTimeout(() => {
+                document.addEventListener('mousedown', cancelSizeOnOutside);
+                document.addEventListener('touchstart', cancelSizeOnOutside);
+            }, 0);
         }
 
-        // No cancelSizeOnOutside needed — handled by onblur on the input
+        function cancelSizeOnOutside(e) {
+            const input   = document.getElementById('detail-size-input');
+            const confirm = document.getElementById('detail-size-confirm');
+            if (input.contains(e.target) || confirm.contains(e.target)) return;
+            cancelSizeEdit();
+        }
 
         function cancelSizeEdit() {
             document.removeEventListener('mousedown', cancelSizeOnOutside);
@@ -1351,13 +1358,9 @@
             el.style.color = (!val || valid) ? '' : '#f87171';
         }
 
-        function onSizeBlur(e) {
-            // If focus moved to the confirm button, let confirmSize handle it — don't cancel
-            if (e.relatedTarget && e.relatedTarget.id === 'detail-size-confirm') return;
-            cancelSizeEdit();
-        }
-
         async function confirmSize() {
+            document.removeEventListener('mousedown', cancelSizeOnOutside);
+            document.removeEventListener('touchstart', cancelSizeOnOutside);
             const input = document.getElementById('detail-size-input');
             const val   = input.value.trim();
             if (val !== '' && !/^\d+$/.test(val)) {
@@ -1412,32 +1415,6 @@
             // Refresh sidebar genres in case it's a new genre
             if (sidebarGenresOpen) renderSidebarGenres();
             if (mobileSidebarGenresOpen) renderMobileSidebarGenres();
-        }
-
-        // ── Toast ────────────────────────────────────────────
-        let _toastTimer = null;
-        function toast(message, type = 'info') {
-            const inner = document.getElementById('toast-inner');
-            if (!inner) return;
-            clearTimeout(_toastTimer);
-            const colors = {
-                info:    'bg-zinc-800 text-zinc-100 border border-zinc-700',
-                success: 'bg-emerald-900 text-emerald-100 border border-emerald-700',
-                error:   'bg-red-900 text-red-100 border border-red-700',
-                warn:    'bg-amber-900 text-amber-100 border border-amber-700',
-            };
-            inner.className = `px-6 py-3 rounded-2xl text-sm font-medium shadow-xl transition-all duration-300 ${colors[type] || colors.info}`;
-            inner.textContent = message;
-            inner.classList.remove('hidden');
-            requestAnimationFrame(() => {
-                inner.style.opacity = '1';
-                inner.style.transform = 'translateY(0)';
-            });
-            _toastTimer = setTimeout(() => {
-                inner.style.opacity = '0';
-                inner.style.transform = 'translateY(8px)';
-                setTimeout(() => inner.classList.add('hidden'), 300);
-            }, 3000);
         }
 
         // ── Utility ──────────────────────────────────────────
@@ -1517,10 +1494,5 @@
             }
         });
     </script>
-    <!-- Toast -->
-    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[999] pointer-events-none">
-        <div id="toast-inner" class="hidden px-6 py-3 rounded-2xl text-sm font-medium shadow-xl transition-all duration-300 opacity-0 translate-y-2">
-        </div>
-    </div>
 </body>
 </html>
