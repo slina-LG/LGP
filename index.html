@@ -279,6 +279,18 @@
                         </div>
                     </div>
 
+                    <div class="mb-4 relative">
+                        <input id="gallery-search" type="text"
+                               oninput="renderGallery(); document.getElementById('search-clear').classList.toggle('hidden', !this.value)"
+                               placeholder="Search by name..."
+                               class="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3 pr-10 focus:outline-none focus:border-rose-500 text-sm">
+                        <button id="search-clear"
+                                onclick="document.getElementById('gallery-search').value=''; renderGallery(); this.classList.add('hidden')"
+                                class="hidden absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
                     <div id="gallery-grid" class="gallery-grid"></div>
                 </div>
 
@@ -977,6 +989,9 @@
                 });
             }
             if (activeFilters.length) toRender = toRender.filter(item => activeFilters.every(g => (item.genres || []).includes(g)));
+
+            const searchQuery = (document.getElementById('gallery-search')?.value || '').trim().toLowerCase();
+            if (searchQuery) toRender = toRender.filter(item => item.name.toLowerCase().includes(searchQuery));
 
             // Step 2: apply current sort
             if (currentSort === 'random') {
