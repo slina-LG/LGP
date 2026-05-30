@@ -642,26 +642,25 @@
             if (!currentUser) return;
             try {
                 const res = await fetch(
-                    `${SUPABASE_URL}lust_items?user_nickname=eq.${encodeURIComponent(currentUser.nickname)}`, {
+                    `${SUPABASE_URL}items?user_nickname=eq.${encodeURIComponent(currentUser.nickname)}&order=created.desc`, {
                     headers: sbHeaders()
                 });
-                const data = await res.json();
-
-                if (data.length > 0) {
-                    items = data[0].data || [];
-                } else {
-                    // First time for this user — create their row
-                    await fetch(`${SUPABASE_URL}lust_items`, {
-                        method: "POST",
-                        headers: sbHeaders({ "Content-Type": "application/json" }),
-                        body: JSON.stringify({
-                            user_nickname: currentUser.nickname,
-                            data: [],
-                            updated_at: new Date().toISOString()
-                        })
-                    });
-                    items = [];
-                }
+                const rows = await res.json();
+                items = rows.map(r => ({
+                    id:           r.id,
+                    name:         r.name,
+                    activeLink:   r.active_link,
+                    source:       r.source,
+                    originalLink: r.original_link,
+                    imageUrl:     r.image_url,
+                    genres:       r.genres || [],
+                    views:        r.views || 0,
+                    created:      r.created,
+                    lastOpened:   r.last_opened,
+                    linkWorks:    r.link_works,
+                    size:         r.size,
+                    _recScore:    r.rec_score,
+                }));
             } catch (e) {
                 console.error(e);
                 alert('Failed to load your collection.');
@@ -669,22 +668,57 @@
         }
 
         // ── Supabase: Save items ─────────────────────────────
-        async function saveItems() {
+        async function saveItems(id) {
             if (!currentUser) return;
             try {
-                await fetch(
-                    `${SUPABASE_URL}lust_items?user_nickname=eq.${encodeURIComponent(currentUser.nickname)}`, {
-                    method: "PATCH",
-                    headers: sbHeaders({
-                        "Content-Type": "application/json",
-                        "Prefer": "return=representation"
-                    }),
-                    body: JSON.stringify({ data: items, updated_at: new Date().toISOString() })
-                });
+                const now = new Date().toISOString();
+                if (id) {
+                    // Save a single item by ID
+                    const item = items.find(i => i.id === id);
+                    if (!item) return;
+                    await fetch(
+                        `${SUPABASE_URL}items?id=eq.${encodeURIComponent(id)}&user_nickname=eq.${encodeURIComponent(currentUser.nickname)}`, {
+                        method: "PATCH",
+                        headers: sbHeaders({ "Content-Type": "application/json" }),
+                        body: JSON.stringify(itemToRow(item, now))
+                    });
+                } else {
+                    // Bulk upsert all items (used for imports)
+                    await fetch(`${SUPABASE_URL}items`, {
+                        method: "POST",
+                        headers: sbHeaders({
+                            "Content-Type": "application/json",
+                            "Prefer": "resolution=merge-duplicates"
+                        }),
+                        body: JSON.stringify(items.map(item => ({
+                            ...itemToRow(item, now),
+                            id: item.id,
+                            user_nickname: currentUser.nickname,
+                        })))
+                    });
+                }
             } catch (e) {
                 console.error(e);
                 alert('Failed to save changes.');
             }
+        }
+
+        function itemToRow(item, now = new Date().toISOString()) {
+            return {
+                name:          item.name,
+                active_link:   item.activeLink   || null,
+                source:        item.source       || null,
+                original_link: item.originalLink || null,
+                image_url:     item.imageUrl     || null,
+                genres:        item.genres       || [],
+                views:         item.views        || 0,
+                created:       item.created      || now,
+                last_opened:   item.lastOpened   || null,
+                link_works:    item.linkWorks     ?? null,
+                size:          item.size         || null,
+                rec_score:     item._recScore    ?? null,
+                updated_at:    now,
+            };
         }
 
         // ── Input parser ─────────────────────────────────────
@@ -746,8 +780,7 @@
 
             if (unique.length === 0) return alert('All items already exist in your grid.');
 
-            items = [...unique, ...items];
-            await saveItems();
+            await insertItems(unique);
 
             document.getElementById('genres-input').value  = '';
             document.getElementById('content-input').value = '';
@@ -787,12 +820,26 @@
                 lastOpened:   null,
             };
 
-            items = [newItem, ...items];
-            await saveItems();
+            await insertItems([newItem]);
 
             // Clear fields
             ['manual-name','manual-active','manual-source','manual-original','manual-image']
                 .forEach(id => document.getElementById(id).value = '');
+        }
+
+        async function insertItems(newItems) {
+            const now = new Date().toISOString();
+            const rows = newItems.map(item => ({
+                ...itemToRow(item, now),
+                id:            item.id,
+                user_nickname: currentUser.nickname,
+            }));
+            await fetch(`${SUPABASE_URL}items`, {
+                method: "POST",
+                headers: sbHeaders({ "Content-Type": "application/json" }),
+                body: JSON.stringify(rows)
+            });
+            items = [...newItems, ...items];
         }
 
         // ── Sidebar genres ───────────────────────────────────
@@ -1014,7 +1061,7 @@
             if (!skipSave) {
                 item.views = (item.views || 0) + 1;
                 item.lastOpened = new Date().toISOString();
-                await saveItems();
+                await saveItems(id);
             }
 
             document.getElementById('detail-image').src   = item.imageUrl;
@@ -1046,7 +1093,7 @@
             if (!checked) {
                 item.linkWorks = false;
                 item.activeLink = item.source || item.activeLink;
-                await saveItems();
+                await saveItems(currentItemId);
                 viewDetail(currentItemId, true);
             } else {
                 // Re-derive — shouldn't normally be reachable by user interaction
@@ -1291,8 +1338,13 @@
 
         async function deleteSelected() {
             if (!selectedItems.size || !confirm(`Delete ${selectedItems.size} item(s)?`)) return;
+            const ids = [...selectedItems].map(id => `"${id}"`).join(',');
+            await fetch(
+                `${SUPABASE_URL}items?id=in.(${ids})&user_nickname=eq.${encodeURIComponent(currentUser.nickname)}`, {
+                method: "DELETE",
+                headers: sbHeaders()
+            });
             items = items.filter(i => !selectedItems.has(i.id));
-            await saveItems();
             cancelSelection();
         }
 
@@ -1312,8 +1364,7 @@
                             if (!item.created) item.created = new Date().toISOString();
                             if (typeof item.views !== 'number') item.views = 0;
                         });
-                        items = [...imported, ...items];
-                        await saveItems();
+                        await insertItems(imported);
                         renderGallery();
                         alert(`${imported.length} items imported!`);
                     } catch (err) { alert('Invalid JSON file.'); }
@@ -1342,7 +1393,7 @@
             if ((item.activeLink || '').startsWith('https://mega.nz')) {
                 item.linkWorks = true;
             }
-            await saveItems();
+            await saveItems(currentItemId);
             closeModals();
             viewDetail(currentItemId, true);
         }
@@ -1360,7 +1411,7 @@
             const newUrl = document.getElementById('edit-image-url').value.trim();
             if (!newUrl) return alert('Please enter a valid image URL.');
             item.imageUrl = newUrl;
-            await saveItems();
+            await saveItems(currentItemId);
             closeModals();
             viewDetail(currentItemId, true);
         }
@@ -1377,15 +1428,19 @@
             if (!item) return;
             item.genres = document.getElementById('modal-genres-input').value
                 .split(',').map(g => g.trim().toLowerCase()).filter(Boolean);
-            await saveItems();
+            await saveItems(currentItemId);
             closeModals();
             viewDetail(currentItemId, true);
         }
 
         async function deleteCurrentItem() {
             if (!currentItemId || !confirm('Delete this item?')) return;
+            await fetch(
+                `${SUPABASE_URL}items?id=eq.${encodeURIComponent(currentItemId)}&user_nickname=eq.${encodeURIComponent(currentUser.nickname)}`, {
+                method: "DELETE",
+                headers: sbHeaders()
+            });
             items = items.filter(i => i.id !== currentItemId);
-            await saveItems();
             backToGallery();
         }
 
@@ -1455,7 +1510,7 @@
             const item = items.find(i => i.id === currentItemId);
             if (!item) return;
             item.size = val === '' ? null : parseInt(val, 10);
-            await saveItems();
+            await saveItems(currentItemId);
             document.getElementById('detail-size-display').textContent = formatSize(item.size);
             cancelSizeEdit();
         }
@@ -1490,14 +1545,14 @@
             const input = document.getElementById('bulk-genre-input');
             const genre = input.value.trim().toLowerCase();
             if (!genre) return;
+            const affected = [];
             items.forEach(item => {
                 if (!selectedItems.has(item.id)) return;
                 if (!item.genres) item.genres = [];
-                if (!item.genres.includes(genre)) item.genres.push(genre);
+                if (!item.genres.includes(genre)) { item.genres.push(genre); affected.push(item.id); }
             });
-            await saveItems();
+            await Promise.all(affected.map(id => saveItems(id)));
             input.value = '';
-            // Refresh sidebar genres in case it's a new genre
             if (sidebarGenresOpen) renderSidebarGenres();
             if (mobileSidebarGenresOpen) renderMobileSidebarGenres();
         }
