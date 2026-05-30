@@ -1718,6 +1718,13 @@
                 localStorage.removeItem('lg_user');
             }
         });
+
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState !== 'visible') return;
+            if (!currentUser) return;
+            await loadItems();
+            renderGallery();
+        });
     </script>
 </body>
 </html>
