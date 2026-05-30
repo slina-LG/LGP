@@ -261,6 +261,7 @@
                         <div class="flex flex-wrap gap-3 items-center">
                             <button onclick="selectAll()" class="px-6 py-2 text-sm hover:bg-white/10 rounded-2xl">Select All</button>
                             <button onclick="exportSelected()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-2xl">Export</button>
+                            <button onclick="fetchSizesForSelected(this)" class="px-6 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-2xl">Fetch sizes</button>
                             <button onclick="deleteSelected()" class="px-6 py-2 bg-red-600 hover:bg-red-500 rounded-2xl">Delete</button>
                             <button onclick="cancelSelection()" class="text-zinc-400 hover:text-white ml-auto">Cancel</button>
                         </div>
@@ -462,7 +463,7 @@
     <script>
         // ── Config ──────────────────────────────────────────
         const SUPABASE_URL = "https://jlhknihfcyncrseqctqu.supabase.co/rest/v1/";
-        const SUPABASE_KEY = "sb_publishable_-XuJ12E83kQMSOF4K5QHHA_Y3eUjNi_";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsaGtuaWhmY3luY3JzZXFjdHF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0ODA4MDUsImV4cCI6MjA5NTA1NjgwNX0.PDaFPdctjz_PNb0crW4PQMfY63dW_Vg-uQNY1-x8IMM";
 
         // ── State ────────────────────────────────────────────
         let currentUser  = null;
@@ -1030,6 +1031,7 @@
                     <img src="${item.imageUrl}" loading="lazy" class="w-full aspect-[2/3] md:aspect-[4/5] object-cover" alt="${item.name}">
                     <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
                         <p class="font-medium line-clamp-2 text-sm">${item.name}</p>
+                        ${item.size != null ? `<p class="text-xs text-zinc-400 mt-1">${formatSize(item.size)}</p>` : ''}
                     </div>
                     ${isSelectMode ? `
                     <div onclick="event.stopImmediatePropagation(); toggleSelectItem('${item.id}');"
@@ -1051,6 +1053,31 @@
             if (isLocked) return true;
             if (typeof item.linkWorks === 'boolean') return item.linkWorks;
             return (item.activeLink || '').startsWith('https://mega.nz');
+        }
+
+        // ── MEGA folder size ─────────────────────────────────
+        async function fetchMegaFolderSize(url) {
+            try {
+                const match = url.match(/mega\.nz\/folder\/([a-zA-Z0-9_-]+)/);
+                if (!match) return null;
+                const folderId = match[1];
+                const res = await fetch(
+                    `https://g.api.mega.co.nz/cs?id=0&n=${folderId}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify([{ a: 'f', c: 1, r: 1 }])
+                    }
+                );
+                const data = await res.json();
+                if (!data || !data[0] || !data[0].f) return null;
+                const totalBytes = data[0].f
+                    .filter(n => n.t === 0)           // files only
+                    .reduce((sum, n) => sum + (n.s || 0), 0);
+                return Math.round(totalBytes / 1_000_000); // bytes → MB
+            } catch {
+                return null;
+            }
         }
 
         // ── Detail view ──────────────────────────────────────
@@ -1084,6 +1111,18 @@
 
             history.pushState({ card: id }, '', '?card=' + id);
             navigateTo('detail');
+
+            // Auto-fetch size from MEGA in the background if size is empty
+            if ((item.size === null || item.size === undefined) &&
+                (item.activeLink || '').startsWith('https://mega.nz/folder/')) {
+                fetchMegaFolderSize(item.activeLink).then(async mb => {
+                    if (mb === null) return;
+                    if (currentItemId !== id) return; // user navigated away
+                    item.size = mb;
+                    await saveItems(id);
+                    document.getElementById('detail-size-display').textContent = formatSize(mb);
+                });
+            }
         }
 
         async function toggleLinkWorks(checked) {
@@ -1387,11 +1426,20 @@
         async function saveLinks() {
             const item = items.find(i => i.id === currentItemId);
             if (!item) return;
+            const prevLink = item.activeLink;
             item.activeLink   = document.getElementById('edit-active').value.trim();
             item.source       = document.getElementById('edit-source').value.trim();
             item.originalLink = document.getElementById('edit-original').value.trim();
             if ((item.activeLink || '').startsWith('https://mega.nz')) {
                 item.linkWorks = true;
+            }
+            // Reset size if active link changed
+            if (item.activeLink !== prevLink) {
+                item.size = null;
+                if (item.activeLink.startsWith('https://mega.nz/folder/')) {
+                    const mb = await fetchMegaFolderSize(item.activeLink);
+                    if (mb !== null) item.size = mb;
+                }
             }
             await saveItems(currentItemId);
             closeModals();
@@ -1539,6 +1587,28 @@
             if (btn && btn.onclick && btn.onclick.toString().includes('addGenreToSelected')) return;
             // Otherwise clear the input but keep the row visible (stay in select mode)
             document.getElementById('bulk-genre-input').value = '';
+        }
+
+        async function fetchSizesForSelected(btn) {
+            const targets = items.filter(i =>
+                selectedItems.has(i.id) &&
+                (i.size === null || i.size === undefined) &&
+                (i.activeLink || '').startsWith('https://mega.nz/folder/')
+            );
+            if (!targets.length) return;
+            btn.disabled = true;
+            btn.textContent = `Fetching 0/${targets.length}…`;
+            let done = 0;
+            await Promise.all(targets.map(async item => {
+                const mb = await fetchMegaFolderSize(item.activeLink);
+                if (mb !== null) {
+                    item.size = mb;
+                    await saveItems(item.id);
+                }
+                btn.textContent = `Fetching ${++done}/${targets.length}…`;
+            }));
+            btn.disabled = false;
+            btn.textContent = 'Fetch sizes';
         }
 
         async function addGenreToSelected() {
