@@ -1120,8 +1120,12 @@
             cancelSizeEdit();
 
             const genresContainer = document.getElementById('detail-genres');
-            genresContainer.innerHTML = (item.genres || [])
-                .map(g => `<span class="bg-zinc-800 text-xs px-4 py-2 rounded-3xl">${g}</span>`)
+            const cardGenres = new Set(item.genres || []);
+            const allGenres = [...new Set(items.flatMap(i => i.genres || []))].sort();
+            genresContainer.innerHTML = allGenres
+                .map(g => cardGenres.has(g)
+                    ? `<span onclick="toggleDetailGenre('${g}')" class="cursor-pointer bg-rose-900/60 text-rose-200 text-xs px-4 py-2 rounded-3xl hover:bg-rose-900">${g}</span>`
+                    : `<span onclick="toggleDetailGenre('${g}')" class="cursor-pointer bg-zinc-800 text-zinc-500 text-xs px-4 py-2 rounded-3xl hover:bg-zinc-700">${g}</span>`)
                 .join('');
 
             history.pushState({ card: id }, '', '?card=' + id);
@@ -1484,6 +1488,17 @@
             if (!item) return;
             document.getElementById('modal-genres-input').value = (item.genres || []).join(', ');
             document.getElementById('genres-modal').classList.remove('hidden');
+        }
+
+        async function toggleDetailGenre(genre) {
+            const item = items.find(i => i.id === currentItemId);
+            if (!item) return;
+            if (!item.genres) item.genres = [];
+            const idx = item.genres.indexOf(genre);
+            if (idx === -1) item.genres.push(genre);
+            else item.genres.splice(idx, 1);
+            await saveItems(currentItemId);
+            viewDetail(currentItemId, true);
         }
 
         async function saveGenres() {
