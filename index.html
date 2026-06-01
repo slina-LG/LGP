@@ -480,6 +480,7 @@
         // ── State ────────────────────────────────────────────
         let currentUser  = null;
         let items        = [];
+        const sessionSeed = Math.floor(Math.random() * 0xffffffff);
         let currentItemId = null;
         let selectedItems = new Set();
         let isSelectMode  = false;
@@ -1231,47 +1232,69 @@
 
             // Apply the (possibly reversed) sort
             if (currentSort === 'recommended' || currentSort === 'recommended-asc') {
-                const FALLBACK = new Date('2026-01-01').getTime();
+                const N = items.length;
 
-                // Step 1: sort by views descending — most views = index 1 (best)
-                // Ties share the same index
-                const byViews = [...items].sort((a, b) => (b.views || 0) - (a.views || 0));
-                const viewIndex = {};
-                let vi = 1;
-                for (let i = 0; i < byViews.length; i++) {
-                    if (i > 0 && (byViews[i].views || 0) !== (byViews[i-1].views || 0)) vi = i + 1;
-                    viewIndex[byViews[i].id] = vi;
-                }
-                const n = vi; // max view index
-                // view_score: most views → index 1 → score (n - 1 + 1)/n = 1 (highest)
-                // few views  → index n → score 1/n (lowest)
-                // formula: (n - index + 1) / n
-                const viewScore = id => (n - viewIndex[id] + 1) / n;
-
-                // Step 2: sort by lastOpened — oldest = index m (best, "neglected")
-                // most recently opened = index 1 (lowest recency score)
+                // Step 1: view score with decay
+                // Split views into recent (last 25% of opens) and old
+                // Sort all items by lastOpened to establish recency rank
                 const byOpened = [...items].sort((a, b) => {
-                    const ta = a.lastOpened ? new Date(a.lastOpened).getTime() : FALLBACK;
-                    const tb = b.lastOpened ? new Date(b.lastOpened).getTime() : FALLBACK;
-                    return tb - ta; // descending: most recent first → index 1
+                    if (!a.lastOpened && !b.lastOpened) return 0;
+                    if (!a.lastOpened) return 1;
+                    if (!b.lastOpened) return 1;
+                    return new Date(b.lastOpened) - new Date(a.lastOpened);
                 });
                 const openedIndex = {};
                 byOpened.forEach((item, i) => openedIndex[item.id] = i + 1);
                 const m = byOpened.length;
-                // recency_score: opened longest ago → index m → score m/m = 1 (highest)
-                // opened most recently → index 1 → score 1/m (lowest)
-                // formula: index / m
+                // recency_score: opened longest ago → high score (neglected)
                 const recencyScore = id => openedIndex[id] / m;
 
-                // Step 3 & 4: compute score and sort descending (higher score = earlier)
+                // Decay: items in the most-recently-opened 25% get their views halved
+                const recentCutoff = Math.ceil(m * 0.25);
+                const decayedViews = id => {
+                    const item = items.find(i => i.id === id);
+                    const v = item.views || 0;
+                    return openedIndex[id] <= recentCutoff ? v * 0.5 : v;
+                };
+
+                // Step 2: rank by decayed views
+                const byDecayedViews = [...items].sort((a, b) => decayedViews(b.id) - decayedViews(a.id));
+                const viewIndex = {};
+                let vi = 1;
+                for (let i = 0; i < byDecayedViews.length; i++) {
+                    if (i > 0 && decayedViews(byDecayedViews[i].id) !== decayedViews(byDecayedViews[i-1].id)) vi = i + 1;
+                    viewIndex[byDecayedViews[i].id] = vi;
+                }
+                const n = vi;
+                const viewScore = id => (n - viewIndex[id] + 1) / n;
+
+                // Step 3: low-views boost — items with < 3 views get a flat bonus
+                const lowViewsBoost = id => {
+                    const item = items.find(i => i.id === id);
+                    return (item.views || 0) < 3 ? 0.15 : 0;
+                };
+
+                // Step 4: random jitter — stable per session (seeded by item id)
+                const jitter = id => {
+                    let hash = 0;
+                    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+                    // Mix with a per-session seed so it changes on reload
+                    hash = (hash ^ sessionSeed) & 0xffffffff;
+                    return ((hash >>> 0) / 0xffffffff) * 0.1 - 0.05; // ±0.05
+                };
+
+                // Step 5: combine
                 sorted.forEach(item => {
-                    item._recScore = viewScore(item.id) * 0.65 + recencyScore(item.id) * 0.35;
+                    item._recScore = viewScore(item.id) * 0.60
+                                   + recencyScore(item.id) * 0.35
+                                   + lowViewsBoost(item.id)
+                                   + jitter(item.id);
                 });
 
                 if (currentSort === 'recommended') {
-                    sorted.sort((a, b) => b._recScore - a._recScore); // higher score first
+                    sorted.sort((a, b) => b._recScore - a._recScore);
                 } else {
-                    sorted.sort((a, b) => a._recScore - b._recScore); // reversed
+                    sorted.sort((a, b) => a._recScore - b._recScore);
                 }
             }
             if (currentSort === 'date-desc')   sorted.sort((a, b) => new Date(b.created) - new Date(a.created));
