@@ -1558,6 +1558,17 @@
                 } else {
                     sorted.sort((a, b) => a._recScore - b._recScore);
                 }
+
+                // Push top 5 most viewed cards to the bottom
+                const top5ids = new Set(
+                    [...items].sort((a, b) => (b.views || 0) - (a.views || 0))
+                              .slice(0, 5)
+                              .map(i => i.id)
+                );
+                const rest    = sorted.filter(i => !top5ids.has(i.id));
+                const bottom  = sorted.filter(i => top5ids.has(i.id));
+                sorted.length = 0;
+                sorted.push(...rest, ...bottom);
             }
             if (currentSort === 'date-desc')   sorted.sort((a, b) => new Date(b.created) - new Date(a.created));
             if (currentSort === 'date-asc')    sorted.sort((a, b) => new Date(a.created) - new Date(b.created));
