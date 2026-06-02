@@ -1227,13 +1227,16 @@
 
         const sessionId = 'sess_' + Math.random().toString(36).slice(2, 12);
 
-        // ── Dwell tracking ───────────────────────────────────
-        let _dwellRowId   = null; // link_opens id to patch
-        let _dwellOpenedAt = null; // timestamp when link was opened
+        // ── Card view tracking (FYP swipe time) ─────────────
+        let _viewRowId     = null;
+        let _viewStartedAt = null;
+        const MIN_VIEW_SECONDS = 2;
 
-        async function logLinkOpen(itemId) {
+        async function startCardView(itemId) {
+            _viewStartedAt = Date.now();
+            _viewRowId     = null;
             try {
-                const res = await fetch(`${SUPABASE_URL}link_opens`, {
+                const res = await fetch(`${SUPABASE_URL}card_views`, {
                     method: 'POST',
                     headers: sbHeaders({
                         'Content-Type': 'application/json',
@@ -1243,37 +1246,39 @@
                         user_nickname: currentUser.nickname,
                         item_id:       itemId,
                         session_id:    sessionId,
-                        opened_at:     new Date().toISOString()
+                        viewed_at:     new Date().toISOString()
                     })
                 });
                 const rows = await res.json();
-                if (rows && rows[0]) {
-                    _dwellRowId    = rows[0].id;
-                    _dwellOpenedAt = Date.now();
-                }
+                if (rows && rows[0]) _viewRowId = rows[0].id;
             } catch {}
         }
 
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState !== 'visible') return;
-            if (!_dwellRowId || !_dwellOpenedAt) return;
-            const dwell = Math.round((Date.now() - _dwellOpenedAt) / 1000);
-            const rowId = _dwellRowId;
-            _dwellRowId    = null;
-            _dwellOpenedAt = null;
-            if (dwell > 1800) return; // over 30 min → ignore
-            fetch(`${SUPABASE_URL}link_opens?id=eq.${rowId}`, {
+        async function stopCardView() {
+            if (!_viewRowId || !_viewStartedAt) return;
+            const seconds = Math.round((Date.now() - _viewStartedAt) / 1000);
+            const rowId = _viewRowId;
+            _viewRowId     = null;
+            _viewStartedAt = null;
+            if (seconds < MIN_VIEW_SECONDS) {
+                // Delete the row — too short to be meaningful
+                fetch(`${SUPABASE_URL}card_views?id=eq.${rowId}`, {
+                    method: 'DELETE',
+                    headers: sbHeaders()
+                }).catch(() => {});
+                return;
+            }
+            fetch(`${SUPABASE_URL}card_views?id=eq.${rowId}`, {
                 method: 'PATCH',
                 headers: sbHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ dwell_seconds: dwell })
+                body: JSON.stringify({ view_seconds: seconds })
             }).catch(() => {});
-        });
+        }
 
         function openActiveLink() {
             const item = items.find(i => i.id === currentItemId);
             if (!item?.activeLink) return;
             window.open(item.activeLink, '_blank');
-            logLinkOpen(item.id);
         }
 
         // ── For You page ─────────────────────────────────────
@@ -1327,6 +1332,7 @@
             const div = document.createElement('div');
             div.className = 'snap-start h-full w-full flex-shrink-0 relative flex flex-col';
             div.style.height = '100%';
+            div.dataset.itemId = item.id;
 
             const isLocked = !item.originalLink || !item.source || item.originalLink === item.source;
             const genreHtml = (item.genres || []).length
@@ -1352,6 +1358,16 @@
                     </button>
                 </div>
             `;
+
+            // Observe visibility to track swipe time
+            const obs = new IntersectionObserver(entries => {
+                if (entries[0].isIntersecting) {
+                    stopCardView(); // stop previous card
+                    startCardView(item.id);
+                }
+            }, { root: document.getElementById('foryou-feed'), threshold: 0.8 });
+            obs.observe(div);
+
             return div;
         }
 
@@ -1394,7 +1410,6 @@
             if (!item?.activeLink) return;
             window.open(item.activeLink, '_blank');
             forYouLastOpen = itemId;
-            logLinkOpen(itemId);
         }
 
         let _detailSource = 'gallery'; // 'gallery' | 'foryou'
@@ -1431,6 +1446,8 @@
             } else if (page === 'foryou') {
                 document.getElementById('foryou-page').classList.remove('hidden');
                 if (document.getElementById('foryou-feed').children.length === 0) initForYou();
+            } else {
+                stopCardView(); // leaving FYP
             }
         }
 
