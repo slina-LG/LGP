@@ -1074,6 +1074,14 @@
                 } else {
                     toRender.sort((a, b) => (a._recScore || 0) - (b._recScore || 0));
                 }
+                const top5ids = new Set(
+                    [...items].sort((a, b) => (b.views || 0) - (a.views || 0))
+                              .slice(0, 5)
+                              .map(i => i.id)
+                );
+                const rest   = toRender.filter(i => !top5ids.has(i.id));
+                const bottom = toRender.filter(i =>  top5ids.has(i.id));
+                toRender = [...rest, ...bottom];
             } else {
                 if (currentSort === 'date-desc')   toRender.sort((a, b) => new Date(b.created) - new Date(a.created));
                 if (currentSort === 'date-asc')    toRender.sort((a, b) => new Date(a.created) - new Date(b.created));
