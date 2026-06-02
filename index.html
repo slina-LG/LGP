@@ -313,8 +313,8 @@
                 <!-- DETAIL PAGE -->
                 <div id="detail-page" class="hidden p-6 md:p-8 pb-24 md:pb-8 max-w-5xl mx-auto">
                     <!-- Back button: desktop only (top) -->
-                    <button onclick="backToGallery()" class="hidden md:flex mb-6 text-rose-400 hover:text-rose-300 items-center gap-2">
-                        ← Back to Grid
+                    <button onclick="backFromDetail()" class="hidden md:flex mb-6 text-rose-400 hover:text-rose-300 items-center gap-2">
+                        ← <span id="back-label-desktop">Back to Grid</span>
                     </button>
                     <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
                         <div class="lg:col-span-3">
@@ -377,9 +377,9 @@
 
         <!-- Mobile bottom back bar — only shown when on detail page -->
         <div id="mobile-back-bar" class="md:hidden hidden fixed bottom-0 left-0 right-0 z-40 p-4 bg-zinc-950/95 border-t border-zinc-800">
-            <button onclick="backToGallery()"
+            <button onclick="backFromDetail()"
                     class="w-full py-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl text-rose-400 font-medium flex items-center justify-center gap-2 transition-colors">
-                ← Back to Grid
+                ← <span id="back-label-mobile">Back to Grid</span>
             </button>
         </div>
 
@@ -1138,9 +1138,13 @@
         }
 
         // ── Detail view ──────────────────────────────────────
-        async function viewDetail(id, skipSave = false) {
+        async function viewDetail(id, skipSave = false, source = 'gallery') {
             const item = items.find(i => i.id === id);
             if (!item) return;
+            _detailSource = source;
+            const backLabel = source === 'foryou' ? 'Back to FYP' : 'Back to Grid';
+            document.getElementById('back-label-desktop').textContent = backLabel;
+            document.getElementById('back-label-mobile').textContent  = backLabel;
             currentItemId = id;
             if (!skipSave) {
                 item.views = (item.views || 0) + 1;
@@ -1315,7 +1319,7 @@
                     <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent"></div>
                 </div>
                 <div class="relative mt-auto p-6 pb-8">
-                    <h2 class="text-2xl font-bold leading-tight">${item.name}</h2>
+                    <h2 onclick="viewDetail('${item.id}', false, 'foryou')" class="text-2xl font-bold leading-tight cursor-pointer hover:text-rose-300 transition-colors">${item.name}</h2>
                     <div class="flex items-center gap-4 mt-2 text-sm text-zinc-400">
                         <span><i class="fa-solid fa-eye mr-1"></i>${item.views || 0}</span>
                         ${item.size != null ? `<span><i class="fa-solid fa-database mr-1"></i>${formatSize(item.size)}</span>` : ''}
@@ -1373,6 +1377,17 @@
             logLinkOpen(itemId);
         }
 
+        let _detailSource = 'gallery'; // 'gallery' | 'foryou'
+
+        function backFromDetail() {
+            if (_detailSource === 'foryou') {
+                history.pushState({}, '', window.location.pathname);
+                navigateTo('foryou');
+            } else {
+                backToGallery();
+            }
+        }
+
         function backToGallery() {
             history.pushState({}, '', window.location.pathname);
             navigateTo('gallery');
@@ -1395,7 +1410,7 @@
                 document.getElementById('detail-page').classList.remove('hidden');
             } else if (page === 'foryou') {
                 document.getElementById('foryou-page').classList.remove('hidden');
-                initForYou();
+                if (document.getElementById('foryou-feed').children.length === 0) initForYou();
             }
         }
 
