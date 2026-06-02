@@ -395,6 +395,26 @@
                 </button>
             </div>
             <div class="flex-1 overflow-hidden flex flex-col py-4 px-3">
+                <!-- Navigation -->
+                <div class="mb-2">
+                    <button onclick="closeMobileSidebar(); navigateTo('gallery')" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-2xl text-left transition-colors">
+                        <i class="fa-solid fa-grid-2 text-rose-400"></i>
+                        <span class="font-medium">Gallery</span>
+                    </button>
+                    <button onclick="closeMobileSidebar(); navigateTo('foryou')" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-2xl text-left transition-colors">
+                        <i class="fa-solid fa-fire text-rose-400"></i>
+                        <span class="font-medium">For You</span>
+                    </button>
+                    <button onclick="closeMobileSidebar(); navigateTo('add')" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-2xl text-left transition-colors">
+                        <i class="fa-solid fa-plus text-rose-400"></i>
+                        <span class="font-medium">Add New</span>
+                    </button>
+                    <button onclick="closeMobileSidebar(); navigateTo('manual-add')" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-2xl text-left transition-colors">
+                        <i class="fa-solid fa-pencil text-rose-400"></i>
+                        <span class="font-medium">Manual Add</span>
+                    </button>
+                </div>
+                <div class="border-t border-zinc-800 my-2"></div>
                 <!-- Genres section -->
                 <button onclick="toggleMobileSidebarGenres()" class="w-full flex items-center gap-2 px-4 py-2 text-left text-zinc-400 hover:text-zinc-200 transition-colors rounded-2xl">
                     <i id="mobile-sidebar-genres-triangle" class="fa-solid fa-caret-right text-sm transition-transform duration-200"></i>
@@ -1198,7 +1218,7 @@
                 item.linkWorks = false;
                 item.activeLink = item.source || item.activeLink;
                 await saveItems(currentItemId);
-                viewDetail(currentItemId, true);
+                viewDetail(currentItemId, true, _detailSource);
             } else {
                 // Re-derive — shouldn't normally be reachable by user interaction
                 document.getElementById('detail-link-works').checked = computeLinkWorks(item);
@@ -1810,7 +1830,7 @@
             }
             await saveItems(currentItemId);
             closeModals();
-            viewDetail(currentItemId, true);
+            viewDetail(currentItemId, true, _detailSource);
         }
 
         function editImageUrl() {
@@ -1828,7 +1848,7 @@
             item.imageUrl = newUrl;
             await saveItems(currentItemId);
             closeModals();
-            viewDetail(currentItemId, true);
+            viewDetail(currentItemId, true, _detailSource);
         }
 
         function editGenres() {
@@ -1846,7 +1866,7 @@
             if (idx === -1) item.genres.push(genre);
             else item.genres.splice(idx, 1);
             await saveItems(currentItemId);
-            viewDetail(currentItemId, true);
+            viewDetail(currentItemId, true, _detailSource);
         }
 
         async function saveGenres() {
@@ -1856,7 +1876,7 @@
                 .split(',').map(g => g.trim().toLowerCase()).filter(Boolean);
             await saveItems(currentItemId);
             closeModals();
-            viewDetail(currentItemId, true);
+            viewDetail(currentItemId, true, _detailSource);
         }
 
         async function deleteCurrentItem() {
