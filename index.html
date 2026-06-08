@@ -264,11 +264,25 @@
                                     class="hidden w-10 h-10 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-2xl flex items-center justify-center transition-colors">
                                 <i class="fa-solid fa-shuffle text-rose-400"></i>
                             </button>
-                            <button onclick="logout()"
-                                    class="flex items-center gap-2 px-5 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl transition-colors">
-                                <i class="fa-solid fa-right-from-bracket"></i>
-                                <span>Logout</span>
-                            </button>
+                            <div class="relative">
+                                <button onclick="toggleAccountMenu()"
+                                        class="flex items-center gap-2 px-5 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-2xl transition-colors">
+                                    <i class="fa-solid fa-circle-user"></i>
+                                    <span>Account</span>
+                                    <i class="fa-solid fa-caret-down text-xs"></i>
+                                </button>
+                                <div id="account-menu" class="hidden absolute right-0 top-full mt-2 w-52 bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden shadow-xl z-50">
+                                    <button onclick="openSwitchAccount()" class="w-full flex items-center gap-3 px-5 py-4 hover:bg-zinc-800 transition-colors text-left">
+                                        <i class="fa-solid fa-repeat text-rose-400"></i>
+                                        <span>Switch Account</span>
+                                    </button>
+                                    <div class="border-t border-zinc-800"></div>
+                                    <button onclick="logout()" class="w-full flex items-center gap-3 px-5 py-4 hover:bg-zinc-800 transition-colors text-left text-zinc-400">
+                                        <i class="fa-solid fa-right-from-bracket"></i>
+                                        <span>Log out</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -616,11 +630,80 @@
             }
         }
 
+        // ── Saved accounts ───────────────────────────────────
+        function getSavedAccounts() {
+            try { return JSON.parse(localStorage.getItem('lg_accounts') || '[]'); }
+            catch { return []; }
+        }
+
+        function saveAccount(user) {
+            const accounts = getSavedAccounts();
+            const idx = accounts.findIndex(a => a.nickname === user.nickname);
+            if (idx >= 0) accounts[idx] = user;
+            else accounts.push(user);
+            localStorage.setItem('lg_accounts', JSON.stringify(accounts));
+        }
+
+        function toggleAccountMenu() {
+            const menu = document.getElementById('account-menu');
+            menu.classList.toggle('hidden');
+            if (!menu.classList.contains('hidden')) {
+                const close = e => { if (!menu.contains(e.target) && !e.target.closest('[onclick="toggleAccountMenu()"]')) { menu.classList.add('hidden'); document.removeEventListener('click', close); } };
+                setTimeout(() => document.addEventListener('click', close), 0);
+            }
+        }
+
+        function openSwitchAccount() {
+            document.getElementById('account-menu').classList.add('hidden');
+            const accounts = getSavedAccounts();
+            const list = document.getElementById('saved-accounts-list');
+            list.innerHTML = '';
+            accounts.forEach(acc => {
+                const isActive = acc.nickname === currentUser?.nickname;
+                const btn = document.createElement('button');
+                btn.className = `w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-colors text-left ${isActive ? 'bg-rose-900/40 border border-rose-700' : 'bg-zinc-800 hover:bg-zinc-700'}`;
+                btn.innerHTML = `
+                    <i class="fa-solid fa-circle-user ${isActive ? 'text-rose-400' : 'text-zinc-400'}"></i>
+                    <span class="flex-1 font-medium">${acc.nickname}</span>
+                    ${isActive ? '<i class="fa-solid fa-check text-rose-400 text-sm"></i>' : ''}
+                `;
+                if (!isActive) btn.onclick = () => switchToAccount(acc);
+                list.appendChild(btn);
+            });
+            document.getElementById('switch-account-modal').classList.remove('hidden');
+        }
+
+        function closeSwitchAccount() {
+            document.getElementById('switch-account-modal').classList.add('hidden');
+        }
+
+        async function switchToAccount(user) {
+            closeSwitchAccount();
+            currentUser = user;
+            localStorage.setItem('lg_user', JSON.stringify(user));
+            items = [];
+            randomOrder = [];
+            forYouQueue = [];
+            forYouShown.clear();
+            document.getElementById('foryou-feed').innerHTML = '';
+            await initializeApp();
+        }
+
+        function showAddAccount() {
+            // Show login screen without logging out current user
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('login-nickname').value = '';
+            document.getElementById('login-password').value = '';
+            document.getElementById('login-screen').dataset.addingAccount = '1';
+        }
+
         // ── Auth: Login ──────────────────────────────────────
         async function login() {
             hideError('login-error');
             const nickname = document.getElementById('login-nickname').value.trim();
             const password = document.getElementById('login-password').value.trim();
+            const addingAccount = document.getElementById('login-screen').dataset.addingAccount === '1';
 
             if (!nickname || !password) {
                 return showError('login-error', 'Nickname and password are required.');
@@ -643,8 +726,10 @@
                 if (hash !== user.password_hash) return showError('login-error', 'Incorrect password.');
 
                 currentUser = user;
+                saveAccount(user);
                 localStorage.setItem('lg_user', JSON.stringify(user));
                 document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('login-screen').dataset.addingAccount = '';
                 document.getElementById('login-password').value = '';
 
                 await initializeApp();
@@ -657,13 +742,18 @@
 
         // ── Auth: Logout ─────────────────────────────────────
         function logout() {
+            document.getElementById('account-menu').classList.add('hidden');
             if (!confirm('Log out?')) return;
+            // Remove from saved accounts
+            const accounts = getSavedAccounts().filter(a => a.nickname !== currentUser?.nickname);
+            localStorage.setItem('lg_accounts', JSON.stringify(accounts));
             currentUser = null;
             items = [];
             randomOrder = [];
             localStorage.removeItem('lg_user');
             document.getElementById('main-app').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('login-screen').dataset.addingAccount = '';
             document.getElementById('login-password').value = '';
             document.getElementById('login-nickname').value = '';
         }
@@ -2142,6 +2232,7 @@
                     return;
                 }
                 currentUser = dbUser;
+                saveAccount(dbUser);
                 document.getElementById('login-screen').classList.add('hidden');
                 await initializeApp();
             } catch (e) {
@@ -2156,5 +2247,18 @@
             renderGallery();
         });
     </script>
+    <!-- Switch Account Modal -->
+    <div id="switch-account-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50" onclick="closeSwitchAccount()">
+        <div class="bg-zinc-900 w-full max-w-sm rounded-3xl p-6 mx-4" onclick="event.stopPropagation()">
+            <h3 class="text-xl font-semibold mb-4">Switch Account</h3>
+            <div id="saved-accounts-list" class="space-y-2 mb-4"></div>
+            <button onclick="closeSwitchAccount(); showAddAccount()"
+                    class="w-full flex items-center justify-center gap-2 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors text-zinc-400">
+                <i class="fa-solid fa-plus"></i>
+                <span>Add Account</span>
+            </button>
+        </div>
+    </div>
+
 </body>
 </html>
