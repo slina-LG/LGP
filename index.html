@@ -1398,28 +1398,46 @@
 
         // ── BypassTools integration ─────────────────────────────
         let _bypassPopup = null;
+        let _bypassPollInterval = null;
         let _bypassMessageHandler = null;
+        let _bypassSaved = false;
+
+        function _bypassCleanup() {
+            if (_bypassPollInterval) { clearInterval(_bypassPollInterval); _bypassPollInterval = null; }
+            if (_bypassMessageHandler) { window.removeEventListener('message', _bypassMessageHandler); _bypassMessageHandler = null; }
+        }
+
+        async function _bypassSave(resolvedUrl) {
+            if (_bypassSaved) return; // guard against double-fire
+            _bypassSaved = true;
+            _bypassCleanup();
+            try { if (_bypassPopup && !_bypassPopup.closed) _bypassPopup.close(); } catch {}
+
+            const target = items.find(i => i.id === currentItemId);
+            if (!target) return;
+            target.activeLink   = resolvedUrl;
+            target.source       = resolvedUrl;
+            target.originalLink = target.originalLink || resolvedUrl;
+            await saveItems(currentItemId);
+            viewDetail(currentItemId, true, _detailSource);
+        }
 
         function unlockWithBypassTools() {
             const item = items.find(i => i.id === currentItemId);
             if (!item || !item.source) return;
 
-            // Update button state
-            const btn = document.getElementById('unlock-btn');
+            const btn   = document.getElementById('unlock-btn');
             const label = document.getElementById('unlock-btn-label');
             label.textContent = 'Opening BypassTools…';
             btn.disabled = true;
+            _bypassSaved = false;
 
-            // Clean up any previous popup/listener
-            if (_bypassMessageHandler) {
-                window.removeEventListener('message', _bypassMessageHandler);
-                _bypassMessageHandler = null;
-            }
+            _bypassCleanup();
             if (_bypassPopup && !_bypassPopup.closed) _bypassPopup.close();
 
             const popupUrl = 'https://bypass.tools/?url=' + encodeURIComponent(item.source);
             _bypassPopup = window.open(popupUrl, 'bypasstools_popup',
-                'width=520,height=640,menubar=no,toolbar=no,location=yes,status=no');
+                'width=540,height=660,menubar=no,toolbar=no,location=yes,status=no');
 
             if (!_bypassPopup) {
                 label.textContent = 'Pop-up blocked — allow pop-ups and retry';
@@ -1427,68 +1445,67 @@
                 return;
             }
 
-            label.textContent = 'Waiting for bypass…';
+            label.textContent = 'Bypassing… complete the steps in the popup';
 
-            // Poll for popup closed without success
-            const closedPoll = setInterval(() => {
-                if (!_bypassPopup || _bypassPopup.closed) {
-                    clearInterval(closedPoll);
-                    if (_bypassMessageHandler) {
-                        window.removeEventListener('message', _bypassMessageHandler);
-                        _bypassMessageHandler = null;
+            // ── Strategy 1: postMessage from the extension ──────────
+            // The extension fires { type: 'easx-bypass-success' } on the popup window.
+            // It also navigates the popup to wokeresponse right after.
+            // We catch the message then immediately poll the popup URL (it will have
+            // moved to the resolved link, which is readable for one tick before any
+            // further redirect, or stays readable if it's a direct MEGA/etc link).
+            _bypassMessageHandler = (e) => {
+                if (!e.data || e.data.type !== 'easx-bypass-success') return;
+                label.textContent = 'Bypass complete — saving…';
+
+                // Poll popup location: after reportSuccess the extension navigates
+                // popup to wokeresponse. Give it up to 3s to land there.
+                let attempts = 0;
+                const readPoll = setInterval(() => {
+                    attempts++;
+                    let href = null;
+                    try {
+                        href = _bypassPopup?.location?.href || null;
+                    } catch {
+                        // cross-origin — popup has navigated to target domain
+                        // We can't read it, but the navigation itself means success.
+                        // Fall through to the location-poll strategy below which
+                        // catches it right as it changes.
                     }
-                    // Only reset if still waiting (not already saved)
-                    if (btn.disabled) {
+                    if (href && href !== 'about:blank' &&
+                        !href.includes('bypass.tools') &&
+                        !href.startsWith('https://bypass.tools')) {
+                        clearInterval(readPoll);
+                        _bypassSave(href);
+                        return;
+                    }
+                    if (attempts >= 30) clearInterval(readPoll); // 3s timeout
+                }, 100);
+            };
+            window.addEventListener('message', _bypassMessageHandler);
+
+            // ── Strategy 2: poll the popup URL continuously ──────────
+            // As soon as the popup navigates away from bypass.tools to the
+            // real destination, location.href becomes readable for exactly one
+            // tick (same-origin with the resolved site hasn't loaded yet).
+            // This catches cases where the extension skips postMessage.
+            _bypassPollInterval = setInterval(() => {
+                if (!_bypassPopup || _bypassPopup.closed) {
+                    _bypassCleanup();
+                    if (!_bypassSaved) {
                         label.textContent = 'Unlock with BypassTools';
                         btn.disabled = false;
                     }
-                }
-            }, 800);
-
-            _bypassMessageHandler = async (e) => {
-                if (!e.data || e.data.type !== 'easx-bypass-success') return;
-
-                // Give the popup window a tick to write wokeresponse
-                await new Promise(r => setTimeout(r, 120));
-
-                let resolvedUrl = null;
-                try { resolvedUrl = _bypassPopup?.wokeresponse || null; } catch {}
-
-                // Fallback: if popup is on bypass.tools we can try reading its location
-                if (!resolvedUrl) {
-                    try {
-                        const loc = _bypassPopup?.location?.href || '';
-                        if (loc && loc !== 'about:blank' && !loc.includes('bypass.tools')) {
-                            resolvedUrl = loc;
-                        }
-                    } catch {}
-                }
-
-                clearInterval(closedPoll);
-                window.removeEventListener('message', _bypassMessageHandler);
-                _bypassMessageHandler = null;
-
-                if (!resolvedUrl) {
-                    label.textContent = 'Could not read resolved URL — try again';
-                    btn.disabled = false;
                     return;
                 }
-
-                try { _bypassPopup.close(); } catch {}
-
-                // Save resolved URL as both activeLink and source
-                const target = items.find(i => i.id === currentItemId);
-                if (!target) return;
-                target.activeLink    = resolvedUrl;
-                target.source        = resolvedUrl;
-                target.originalLink  = target.originalLink || resolvedUrl;
-                await saveItems(currentItemId);
-
-                // Refresh detail view to reflect unlocked state
-                viewDetail(currentItemId, true, _detailSource);
-            };
-
-            window.addEventListener('message', _bypassMessageHandler);
+                let href = null;
+                try { href = _bypassPopup.location.href; } catch { return; }
+                // Still on bypass.tools or blank — keep waiting
+                if (!href || href === 'about:blank' ||
+                    href.startsWith('https://bypass.tools') ||
+                    href.startsWith('http://bypass.tools')) return;
+                // Landed on the real URL
+                _bypassSave(href);
+            }, 150);
         }
         // ────────────────────────────────────────────────────────
 
