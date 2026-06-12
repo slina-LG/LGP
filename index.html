@@ -60,7 +60,7 @@
     <!-- ═══════════════════════════════════════════════════════
          SIGNUP SCREEN
     ═══════════════════════════════════════════════════════ -->
-    <div id="signup-screen" class="hidden min-h-screen flex items-center justify-center p-6">
+    <div id="signup-screen" class="hidden min-h-screen items-center justify-center p-6">
         <div class="max-w-md w-full bg-zinc-900 rounded-3xl p-10">
             <h1 class="title-font text-5xl font-bold text-rose-500 text-center mb-2">LUST GRID</h1>
             <h2 class="text-2xl font-semibold text-center mb-8 text-zinc-300">Create Account</h2>
@@ -212,7 +212,7 @@
                 </div>
 
                 <!-- FOR YOU PAGE -->
-                <div id="foryou-page" class="hidden fixed inset-0 pt-14 md:pt-0 md:ml-64 bg-black overflow-hidden">
+                <div id="foryou-page" class="hidden fixed inset-0 pt-14 pb-20 md:pt-0 md:pb-0 md:ml-64 bg-black overflow-hidden">
                     <div id="foryou-feed" class="h-full overflow-y-scroll snap-y snap-mandatory">
                         <!-- cards injected here -->
                     </div>
@@ -286,7 +286,7 @@
                         </div>
                     </div>
 
-                    <div id="selection-toolbar" class="hidden mb-4 bg-zinc-900 border border-rose-800 rounded-3xl p-4 flex flex-col gap-3">
+                    <div id="selection-toolbar" class="hidden mb-4 bg-zinc-900 border border-rose-800 rounded-3xl p-4 flex-col gap-3">
                         <div class="flex flex-wrap gap-3 items-center">
                             <button onclick="selectAll()" class="px-6 py-2 text-sm hover:bg-white/10 rounded-2xl">Select All</button>
                             <button onclick="exportSelected()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-2xl">Export</button>
@@ -296,7 +296,7 @@
                             <button onclick="cancelSelection()" class="text-zinc-400 hover:text-white ml-auto">Cancel</button>
                         </div>
                         <!-- Add genre row — visible only when ≥1 card selected -->
-                        <div id="bulk-genre-row" class="hidden flex items-center gap-2">
+                        <div id="bulk-genre-row" class="hidden items-center gap-2">
                             <input id="bulk-genre-input" type="text"
                                    placeholder="Type a genre..."
                                    class="flex-1 bg-black border border-zinc-700 rounded-2xl px-4 py-2 text-sm focus:outline-none focus:border-rose-500"
@@ -374,6 +374,12 @@
                             </div>
                             <button onclick="openActiveLink()" class="w-full py-6 bg-gradient-to-r from-rose-600 to-pink-600 rounded-3xl text-xl font-semibold">
                                 OPEN LINK
+                            </button>
+                            <!-- Unlock button: only shown for locked items -->
+                            <button id="unlock-btn" onclick="unlockWithBypassTools()"
+                                    class="hidden w-full py-4 bg-zinc-900 border border-purple-700 text-purple-300 hover:bg-purple-900/30 rounded-3xl font-medium transition-colors flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-lock-open"></i>
+                                <span id="unlock-btn-label">Unlock with BypassTools</span>
                             </button>
                             <div class="flex gap-3">
                                 <button onclick="editLinks()" class="flex-1 py-4 bg-zinc-900 border border-zinc-700 rounded-3xl hover:bg-zinc-800 transition-colors">Edit Links</button>
@@ -761,17 +767,23 @@
         // ── Screen switching ─────────────────────────────────
         function showSignup() {
             document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('signup-screen').classList.remove('hidden');
+            const s = document.getElementById('signup-screen');
+            s.classList.remove('hidden');
+            s.style.display = 'flex';
         }
 
         function showLogin() {
             document.getElementById('signup-screen').classList.add('hidden');
-            document.getElementById('login-screen').classList.remove('hidden');
+            const l = document.getElementById('login-screen');
+            l.classList.remove('hidden');
+            l.style.display = 'flex';
         }
 
         // ── App init after login ─────────────────────────────
         async function initializeApp() {
-            document.getElementById('main-app').classList.remove('hidden');
+            const app = document.getElementById('main-app');
+            app.classList.remove('hidden');
+            app.style.display = 'flex';
             await loadItems();
             if (sidebarGenresOpen) renderSidebarGenres();
             const cardParam = new URLSearchParams(window.location.search).get('card');
@@ -1280,6 +1292,17 @@
             cb.checked = computeLinkWorks(item);
             cb.disabled = isLocked;
 
+            // Show unlock button only for locked items that have a source to bypass
+            const unlockBtn = document.getElementById('unlock-btn');
+            if (isLocked && item.source) {
+                unlockBtn.classList.remove('hidden');
+                unlockBtn.style.display = 'flex';
+                document.getElementById('unlock-btn-label').textContent = 'Unlock with BypassTools';
+                unlockBtn.disabled = false;
+            } else {
+                unlockBtn.classList.add('hidden');
+            }
+
             document.getElementById('detail-size-display').textContent = formatSize(item.size);
             cancelSizeEdit();
 
@@ -1372,6 +1395,102 @@
                 body: JSON.stringify({ view_seconds: seconds })
             }).catch(() => {});
         }
+
+        // ── BypassTools integration ─────────────────────────────
+        let _bypassPopup = null;
+        let _bypassMessageHandler = null;
+
+        function unlockWithBypassTools() {
+            const item = items.find(i => i.id === currentItemId);
+            if (!item || !item.source) return;
+
+            // Update button state
+            const btn = document.getElementById('unlock-btn');
+            const label = document.getElementById('unlock-btn-label');
+            label.textContent = 'Opening BypassTools…';
+            btn.disabled = true;
+
+            // Clean up any previous popup/listener
+            if (_bypassMessageHandler) {
+                window.removeEventListener('message', _bypassMessageHandler);
+                _bypassMessageHandler = null;
+            }
+            if (_bypassPopup && !_bypassPopup.closed) _bypassPopup.close();
+
+            const popupUrl = 'https://bypass.tools/?url=' + encodeURIComponent(item.source);
+            _bypassPopup = window.open(popupUrl, 'bypasstools_popup',
+                'width=520,height=640,menubar=no,toolbar=no,location=yes,status=no');
+
+            if (!_bypassPopup) {
+                label.textContent = 'Pop-up blocked — allow pop-ups and retry';
+                btn.disabled = false;
+                return;
+            }
+
+            label.textContent = 'Waiting for bypass…';
+
+            // Poll for popup closed without success
+            const closedPoll = setInterval(() => {
+                if (!_bypassPopup || _bypassPopup.closed) {
+                    clearInterval(closedPoll);
+                    if (_bypassMessageHandler) {
+                        window.removeEventListener('message', _bypassMessageHandler);
+                        _bypassMessageHandler = null;
+                    }
+                    // Only reset if still waiting (not already saved)
+                    if (btn.disabled) {
+                        label.textContent = 'Unlock with BypassTools';
+                        btn.disabled = false;
+                    }
+                }
+            }, 800);
+
+            _bypassMessageHandler = async (e) => {
+                if (!e.data || e.data.type !== 'easx-bypass-success') return;
+
+                // Give the popup window a tick to write wokeresponse
+                await new Promise(r => setTimeout(r, 120));
+
+                let resolvedUrl = null;
+                try { resolvedUrl = _bypassPopup?.wokeresponse || null; } catch {}
+
+                // Fallback: if popup is on bypass.tools we can try reading its location
+                if (!resolvedUrl) {
+                    try {
+                        const loc = _bypassPopup?.location?.href || '';
+                        if (loc && loc !== 'about:blank' && !loc.includes('bypass.tools')) {
+                            resolvedUrl = loc;
+                        }
+                    } catch {}
+                }
+
+                clearInterval(closedPoll);
+                window.removeEventListener('message', _bypassMessageHandler);
+                _bypassMessageHandler = null;
+
+                if (!resolvedUrl) {
+                    label.textContent = 'Could not read resolved URL — try again';
+                    btn.disabled = false;
+                    return;
+                }
+
+                try { _bypassPopup.close(); } catch {}
+
+                // Save resolved URL as both activeLink and source
+                const target = items.find(i => i.id === currentItemId);
+                if (!target) return;
+                target.activeLink    = resolvedUrl;
+                target.source        = resolvedUrl;
+                target.originalLink  = target.originalLink || resolvedUrl;
+                await saveItems(currentItemId);
+
+                // Refresh detail view to reflect unlocked state
+                viewDetail(currentItemId, true, _detailSource);
+            };
+
+            window.addEventListener('message', _bypassMessageHandler);
+        }
+        // ────────────────────────────────────────────────────────
 
         function openActiveLink() {
             const item = items.find(i => i.id === currentItemId);
@@ -1856,7 +1975,9 @@
         function toggleSelectMode() {
             isSelectMode = !isSelectMode;
             selectedItems.clear();
-            document.getElementById('selection-toolbar').classList.toggle('hidden', !isSelectMode);
+            const toolbar = document.getElementById('selection-toolbar');
+            toolbar.classList.toggle('hidden', !isSelectMode);
+            if (isSelectMode) toolbar.style.display = 'flex';
             document.getElementById('import-btn').classList.toggle('hidden', isSelectMode);
             renderGallery();
         }
@@ -2094,6 +2215,7 @@
             if (!row) return;
             if (selectedItems.size > 0) {
                 row.classList.remove('hidden');
+                row.style.display = 'flex';
                 totalSizeBtn.classList.remove('hidden');
                 totalSizeBtn.textContent = 'Total size';
             } else {
@@ -2201,10 +2323,10 @@
         document.addEventListener('touchmove', e => {
             const dx = Math.abs(e.touches[0].clientX - touchStartX);
             const dy = Math.abs(e.touches[0].clientY - touchStartY);
-            if (dx > 8 || dy > 8) touchMoved = true;
+            if (dx > 12 || dy > 12) touchMoved = true;
         }, { passive: true });
         document.addEventListener('click', e => {
-            if (touchMoved) { e.stopImmediatePropagation(); e.preventDefault(); touchMoved = false; }
+            if (touchMoved) { e.stopImmediatePropagation(); touchMoved = false; }
         }, true); // capture phase so it runs before any other click handler
 
         // Auto-restore session from localStorage — re-verified against Supabase
