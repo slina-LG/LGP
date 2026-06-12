@@ -1457,29 +1457,19 @@
                 if (!e.data || e.data.type !== 'easx-bypass-success') return;
                 label.textContent = 'Bypass complete — saving…';
 
-                // Poll popup location: after reportSuccess the extension navigates
-                // popup to wokeresponse. Give it up to 3s to land there.
-                let attempts = 0;
-                const readPoll = setInterval(() => {
-                    attempts++;
-                    let href = null;
-                    try {
-                        href = _bypassPopup?.location?.href || null;
-                    } catch {
-                        // cross-origin — popup has navigated to target domain
-                        // We can't read it, but the navigation itself means success.
-                        // Fall through to the location-poll strategy below which
-                        // catches it right as it changes.
-                    }
-                    if (href && href !== 'about:blank' &&
-                        !href.includes('bypass.tools') &&
-                        !href.startsWith('https://bypass.tools')) {
-                        clearInterval(readPoll);
-                        _bypassSave(href);
-                        return;
-                    }
-                    if (attempts >= 30) clearInterval(readPoll); // 3s timeout
-                }, 100);
+                // Read wokeresponse SYNCHRONOUSLY before the popup navigates away.
+                // The extension sets window.wokeresponse then immediately calls
+                // reportSuccess() — so at this exact moment it's still readable.
+                let resolvedUrl = null;
+                try { resolvedUrl = _bypassPopup.wokeresponse || null; } catch {}
+
+                if (resolvedUrl) {
+                    _bypassSave(resolvedUrl);
+                } else {
+                    // Fallback: wokeresponse wasn't readable, strategy 2 (location poll)
+                    // will still be running and may catch the redirect.
+                    console.warn('[BypassTools] wokeresponse unreadable, falling back to location poll');
+                }
             };
             window.addEventListener('message', _bypassMessageHandler);
 
