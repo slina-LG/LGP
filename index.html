@@ -1262,7 +1262,7 @@
                          class="absolute top-3 right-3 w-7 h-7 rounded-2xl border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-rose-500 border-rose-500' : 'border-white/70 bg-black/40'}">
                         ${isSelected ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
                     </div>` : `
-                    <div onclick="event.stopImmediatePropagation(); toggleChecked('${item.id}');"
+                    <div onclick="event.preventDefault(); event.stopImmediatePropagation(); toggleChecked('${item.id}');"
                          class="absolute bottom-3 right-3 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-opacity ${item.checked ? 'opacity-100 bg-green-600 border-green-600' : 'opacity-0 group-hover:opacity-100 border-white/70 bg-black/40'}">
                         ${item.checked ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
                     </div>`}
