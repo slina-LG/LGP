@@ -2066,7 +2066,13 @@
                     try {
                         const imported = JSON.parse(ev.target.result);
                         imported.forEach(item => {
-                            if (!item.id)     item.id      = generateId();
+                            // Always mint a fresh id, even if the imported JSON
+                            // already has one. Exported files carry the
+                            // original account's row id — reusing it (e.g.
+                            // when importing into a different account) collides
+                            // with that existing row and the upsert gets
+                            // rejected by RLS, failing the whole batch.
+                            item.id = generateId();
                             if (!item.created) item.created = new Date().toISOString();
                             if (typeof item.views !== 'number') item.views = 0;
                         });
