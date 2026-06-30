@@ -953,7 +953,8 @@
 
             if (unique.length === 0) return alert('All items already exist in your grid.');
 
-            await insertItems(unique);
+            const ok = await insertItems(unique);
+            if (!ok) return;
 
             document.getElementById('genres-input').value  = '';
             document.getElementById('content-input').value = '';
@@ -993,26 +994,51 @@
                 lastOpened:   null,
             };
 
-            await insertItems([newItem]);
+            const ok = await insertItems([newItem]);
+            if (!ok) return;
 
             // Clear fields
             ['manual-name','manual-active','manual-source','manual-original','manual-image']
                 .forEach(id => document.getElementById(id).value = '');
         }
 
+        // Returns true on success, false on failure. Local `items` is only
+        // updated if the database write actually succeeded — previously this
+        // ran unconditionally, so a failed insert (RLS rejection, id
+        // conflict, bad/expired key, etc.) would still show up in the UI as
+        // "imported" even though nothing was persisted to Supabase.
         async function insertItems(newItems) {
+            if (!currentUser) return false;
             const now = new Date().toISOString();
             const rows = newItems.map(item => ({
                 ...itemToRow(item, now),
                 id:            item.id,
                 user_nickname: currentUser.nickname,
             }));
-            await fetch(`${SUPABASE_URL}items`, {
-                method: "POST",
-                headers: sbHeaders({ "Content-Type": "application/json" }),
-                body: JSON.stringify(rows)
-            });
+            try {
+                const res = await fetch(`${SUPABASE_URL}items`, {
+                    method: "POST",
+                    headers: sbHeaders({
+                        "Content-Type": "application/json",
+                        // Without this, one colliding id in the batch causes
+                        // a 409 and silently fails the *entire* insert.
+                        "Prefer": "resolution=merge-duplicates"
+                    }),
+                    body: JSON.stringify(rows)
+                });
+                if (!res.ok) {
+                    const errText = await res.text().catch(() => '');
+                    console.error('insertItems failed:', res.status, errText);
+                    alert('Failed to save items to the database. Nothing was imported — please try again.');
+                    return false;
+                }
+            } catch (e) {
+                console.error('insertItems network error:', e);
+                alert('Failed to save items to the database. Nothing was imported — please try again.');
+                return false;
+            }
             items = [...newItems, ...items];
+            return true;
         }
 
         // ── Sidebar genres ───────────────────────────────────
@@ -2044,9 +2070,11 @@
                             if (!item.created) item.created = new Date().toISOString();
                             if (typeof item.views !== 'number') item.views = 0;
                         });
-                        await insertItems(imported);
-                        renderGallery();
-                        alert(`${imported.length} items imported!`);
+                        const ok = await insertItems(imported);
+                        if (ok) {
+                            renderGallery();
+                            alert(`${imported.length} items imported!`);
+                        }
                     } catch (err) { alert('Invalid JSON file.'); }
                 };
                 reader.readAsText(file);
