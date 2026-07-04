@@ -832,7 +832,7 @@
                     lastOpened:   r.last_opened,
                     linkWorks:    r.link_works,
                     size:         r.size,
-                    checked:      r.checked || false,
+                    mark:         r.mark || null, // null | 'check' | 'cross'
                     _recScore:    r.rec_score,
                 }));
             } catch (e) {
@@ -890,7 +890,7 @@
                 last_opened:   item.lastOpened   || null,
                 link_works:    item.linkWorks     ?? null,
                 size:          item.size         || null,
-                checked:       item.checked      || false,
+                mark:          item.mark         || null,
                 rec_score:     item._recScore    ?? null,
                 updated_at:    now,
             };
@@ -1237,14 +1237,20 @@
                 div.className = `relative group rounded-3xl overflow-hidden cursor-pointer`;
                 if (isSelected) {
                     div.style.boxShadow = '0 0 0 4px #f43f5e';
-                } else if (item.checked) {
-                    // Mimics the unchecked grey/purple split: items that would
-                    // be grey (locked) get a light green glow, items that
-                    // would be purple (unlocked) get a dark green glow.
+                } else if (item.mark === 'check') {
+                    // Mimics the unmarked grey/purple split: items that would
+                    // be grey (locked) get a light glow, items that would be
+                    // purple (unlocked) get a dark glow.
                     if (isUnlocked) {
                         div.style.boxShadow = '0 0 0 1.5px rgba(21,128,61,0.95), 0 0 12px 4px rgba(21,128,61,0.35)';
                     } else {
                         div.style.boxShadow = '0 0 0 1.5px rgba(74,222,128,0.9), 0 0 10px 3px rgba(74,222,128,0.3)';
+                    }
+                } else if (item.mark === 'cross') {
+                    if (isUnlocked) {
+                        div.style.boxShadow = '0 0 0 1.5px rgba(153,27,27,0.95), 0 0 12px 4px rgba(153,27,27,0.35)';
+                    } else {
+                        div.style.boxShadow = '0 0 0 1.5px rgba(248,113,113,0.9), 0 0 10px 3px rgba(248,113,113,0.3)';
                     }
                 } else if (isUnlocked) {
                     div.style.boxShadow = '0 0 0 1.5px rgba(192,132,252,0.9), 0 0 10px 3px rgba(192,132,252,0.25)';
@@ -1262,9 +1268,9 @@
                          class="absolute top-3 right-3 w-7 h-7 rounded-2xl border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-rose-500 border-rose-500' : 'border-white/70 bg-black/40'}">
                         ${isSelected ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
                     </div>` : `
-                    <div onclick="event.preventDefault(); event.stopImmediatePropagation(); toggleChecked('${item.id}');"
-                         class="absolute bottom-3 right-3 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-opacity ${item.checked ? 'opacity-100 bg-green-600 border-green-600' : 'opacity-0 group-hover:opacity-100 border-white/70 bg-black/40'}">
-                        ${item.checked ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                    <div onclick="event.preventDefault(); event.stopImmediatePropagation(); cycleMark('${item.id}');"
+                         class="absolute bottom-3 right-3 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-opacity ${item.mark ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${item.mark === 'check' ? 'bg-green-600 border-green-600' : item.mark === 'cross' ? 'bg-red-600 border-red-600' : 'border-white/70 bg-black/40'}">
+                        ${item.mark === 'check' ? '<i class="fa-solid fa-check text-xs"></i>' : item.mark === 'cross' ? '<i class="fa-solid fa-xmark text-xs"></i>' : ''}
                     </div>`}
                 `;
                 div.onclick = (e) => {
@@ -1283,11 +1289,12 @@
             return (item.activeLink || '').startsWith('https://mega.nz');
         }
 
-        // ── Checkmark toggle (bottom-right hover box on cards) ───
-        async function toggleChecked(id) {
+        // ── Mark cycling (bottom-right hover box on cards) ───────
+        // Cycles: unmarked -> check (green) -> cross (red) -> unmarked
+        async function cycleMark(id) {
             const item = items.find(i => i.id === id);
             if (!item) return;
-            item.checked = !item.checked;
+            item.mark = item.mark === 'check' ? 'cross' : item.mark === 'cross' ? null : 'check';
             renderGallery();
             await saveItems(id);
         }
