@@ -1173,6 +1173,8 @@
                     if (activeStatusFilters.has('not-working') &&  computeLinkWorks(item)) return false;
                     if (activeStatusFilters.has('size-known')   &&  (item.size == null))     return false;
                     if (activeStatusFilters.has('size-unknown') &&  (item.size != null))     return false;
+                    if (activeStatusFilters.has('mark-none') &&  item.mark)                  return false;
+                    if (activeStatusFilters.has('mark-any')  && !item.mark)                  return false;
                     return true;
                 });
             }
@@ -1194,6 +1196,8 @@
                     if (activeStatusFilters.has('not-working') &&  computeLinkWorks(item)) return false;
                     if (activeStatusFilters.has('size-known')   &&  (item.size == null))     return false;
                     if (activeStatusFilters.has('size-unknown') &&  (item.size != null))     return false;
+                    if (activeStatusFilters.has('mark-none') &&  item.mark)                  return false;
+                    if (activeStatusFilters.has('mark-any')  && !item.mark)                  return false;
                     if (activeFilters.length) return activeFilters.every(g => (item.genres || []).includes(g));
                     return true;
                 });
@@ -1905,7 +1909,7 @@
 
             const container = document.getElementById('filter-genres-list');
             container.innerHTML = '';
-            [['unlocked', 'Unlocked'], ['locked', 'Locked'], ['working', 'Working'], ['not-working', 'Not Working'], ['size-known', 'Size Known'], ['size-unknown', 'Size Unknown']].forEach(([val, label]) => {
+            [['unlocked', 'Unlocked'], ['locked', 'Locked'], ['working', 'Working'], ['not-working', 'Not Working'], ['size-known', 'Size Known'], ['size-unknown', 'Size Unknown'], ['mark-none', 'Unmarked'], ['mark-any', 'Marked (✓ or ✗)']].forEach(([val, label]) => {
                 const checked = activeStatusFilters.has(val);
                 const row = document.createElement('div');
                 row.className = 'flex items-center gap-3 py-3 px-2 hover:bg-zinc-800 rounded-2xl cursor-pointer';
